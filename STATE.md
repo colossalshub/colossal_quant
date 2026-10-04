@@ -12,8 +12,8 @@
 ```yaml
 current_phase: 18
 current_phase_status: IN_PROGRESS
-current_task: 18.2
-current_task_status: NOT_STARTED
+current_task: 18.2l
+current_task_status: READY
 next_task: null
 last_completed_task: 18.2k
 last_completed_phase: 17
@@ -72,9 +72,10 @@ work.
 
 ### Current task
 
-**18.2k — Transactional selection and observation-access barrier** — COMPLETE.
-Accepted internal store selection and observation-release mechanics only.
-Remaining 18.2 is NOT_STARTED as a whole; evaluation reservations/results and
+**18.2l — Atomic run-bound evaluation reservations** — READY.
+Independent readiness opens only the internal atomic reservation and logged
+observation-release task below. Accepted 18.2k mechanics remain complete;
+remaining 18.2 is NOT_STARTED as a whole. Completion/results and
 runtime/API/CLI/worker integration require fresh readiness and acceptance.
 next_task null, last_completed_task 18.2k, Phase18 IN_PROGRESS.
 
@@ -106,6 +107,7 @@ next_task null, last_completed_task 18.2k, Phase18 IN_PROGRESS.
 - [x] **18.2i — Reproduce and bind controlled fixture inputs** — COMPLETE; deterministic synthetic recipe reproduction only, no historical source certification or runtime integration.
 - [x] **18.2j — Append-only source and frozen candidate capture store** — COMPLETE; durable capture only, no selection/inspection barrier or runtime integration.
 - [x] **18.2k — Transactional selection and observation-access barrier** — COMPLETE; internal store mechanics only; evaluation reservation/completion/results and runtime integration deferred.
+- [ ] **18.2l — Atomic run-bound evaluation reservations** — READY; internal reservation and inspection before observation release only; completion/results and runtime integration deferred.
 - [ ] **18.3 — Embargo and gap rules** — NOT_STARTED. Only EG-01's named transitions, with EG-02/EG-03 evidence and exclusions, after preceding acceptance/readiness gates.
 - [ ] **18.4 — Walk-forward window identity** — NOT_STARTED. Only WF-01's explicitly enumerated model and WF-02–WF-04 rules, after preceding acceptance/readiness gates.
 
@@ -364,6 +366,125 @@ re-run under WORKFLOW §5. No implementation, suites, installs, push, merge or
 workers. Current task18.2k READY; next_task null; last_completed_task18.2j;
 human_transition_required false; remaining18.2, 18.3 and18.4 NOT_STARTED;
 Phase18 IN_PROGRESS. No whole-phase claim or automatic phase crossing.
+
+### 18.2l independent readiness contract — 2026-10-04 Asia/Manila
+
+Independent readiness opens ONLY **18.2l READY**. Verified clean dedicated
+branch `phase18/18.2l-evaluation-reservations`, baseline HEAD and `origin/main`
+`a88b9b5a05f1aac8e5723e60beb9948a226f5bc7`. Independent live
+`git ls-remote origin refs/heads/main` under the default sandbox returned that
+exact SHA (exit 0); point-in-time evidence only. PR14 is integrated by a normal
+merge. `git diff --quiet 4e152be7b6683058e61974e618c46b82581abd10 HEAD`
+exit 0 proves the exact independently accepted tree. Accepted implementation
+`b47ada07407c656063255be738e85b1b1baa135d` and reviewer completion
+`4e152be7b6683058e61974e618c46b82581abd10` are both ancestors of HEAD
+(independent ancestry checks exit 0). Remote identity remains
+`https://github.com/colossalshub/colossal_quant.git`; terminal author identity
+Michael Gamet / michaelg.devs@gmail.com. Coordinator reports PR14's three GitHub
+checks successful and no open review/thread items; this readiness independently
+verifies merged tree/lineage, not a new GitHub check run.
+
+Read AGENTS, full STATE/WORKFLOW/REVIEWER/INCIDENTS, PROJECT §§2, 4.1, 4.5, 5,
+6.0, Phases14–18, completion and §§7–8; full confirmed Phase18 specification,
+applicable project/backend rules, existing store/tests and fixture/input contracts.
+The following exact bounded contract is preserved from the proposal in the
+repository; implementation has no dependency on disposable scratch notes.
+The existing private `_access` supports same-connection inspection append,
+while the new reservation transaction must commit both ledgers before release.
+No unfamiliar third-party call or dependency is introduced; stdlib SQLite,
+UUID, JSON, hash and clock patterns are already used, so no new probe is needed.
+Delegated trustworthy routine decisions authorize this conservative split.
+The k completion/readiness, post-probe approval and permanent rules remain
+byte-preserved; no archive maintenance occurs in this readiness.
+
+## Decision and practical sequence
+
+Implement one useful store operation family now: atomically reserve one immutable candidate/input/range for one run and log its observation release. It is the missing durable bridge from frozen research evidence to execution. Do not also design a generic result JSON tree or accept a client `eligible`, `success`, `actual_code`, `residual`, or environment label as runtime proof. Store reservation, runtime receipt production, and guarded result access have different evidence sources; bundling all into this already 1,347-line store would hide a large new contract.
+
+After accepted l, the next store task adds immutable success/failure receipts with a narrowly specified trusted runtime writer and guarded result access; the next runtime task connects those operations to the accepted research adapter, checking actual git/code/parameters/input/seed/environment and extracting actual results/residual evidence. Those tasks may be reordered if receipt design needs the runtime producer first; each is a useful operation plus its actual tests, not a speculative pure helper family. Then add RunRecord/admission transport and orchestrator/worker/CLI integration in the fewest workflow-compliant file-plus-test tasks. Finish 18.3 named explicit gaps and 18.4 enumerated sequence/window identities/results only after their gates. Never claim Phase18 complete from store acceptance. No optimizer, aggregate returns, unknown API call, calendar repair, global gap/warmup/window default or new dependency.
+
+## Deliverables and interfaces
+
+Only `backend/src/quant/data/research_store.py` and `backend/tests/data/test_research_store.py`. Existing source/candidate capture, selection/inspection schemas, payloads, errors and contracts remain unchanged. Preserve the scoped ContextVar replay normalization and source-error propagation once.
+
+Frozen slots dataclasses:
+
+* `ResearchEvaluationReservation(seq:int,event_id:str,evaluation_id:str,run_id:str,recorded_at_ts:int,canonical_bytes:bytes)`.
+* `ResearchReservedObservations(reservation:ResearchEvaluationReservation,inspection:ResearchLifecycleEvent,observations:tuple[ResearchObservation,...])`.
+
+Direct construction is unvalidated. Both records are internal and have no eligibility/success flag. Functions:
+
+```
+reserve_validation_evaluation(db_path:Path, *, run_id:str,candidate_id:str,input_id:str,start_ts:int,end_ts:int,actor:str)->ResearchReservedObservations
+reserve_oos_evaluation(db_path:Path, *, run_id:str,selection_id:str,actor:str)->ResearchReservedObservations
+```
+
+OOS candidate, input and bounds come exclusively from the replayed frozen selection; no duplicate overrides. Validation uses the explicit frozen candidate and covered development range under k's exact validation gate. Exploration/ordinary runs are outside these operations. A reservation is not completed execution and does not declare warmup, dependencies or gap compliance. The later execution identity must bind explicitly supplied warmup/dependency/gap evidence together with actual runtime identities; reservation binding below is deliberately only the immutable candidate/stage/input binding.
+
+Every accepted call creates a new server UUID4 hex `evaluation_id`. `run_id` is explicit valid nonempty UTF-8 text, not necessarily a UUID; it binds the application's run, not proof that meta_runs or a worker exists. Each run_id can reserve exactly once globally in this ledger. A duplicate run_id rejects, even for identical content; a retry/exact rerun uses a new run_id and evaluation_id, preserving the original reservation/outcome. No idempotent release shortcut or public unlogged reservation/raw source/lifecycle getter. Later workers must arrange a new run on retry rather than treat the prior failed/reserved run as independent evidence.
+
+## Transaction and storage
+
+Add private `research_evaluation_reservations_v1` via existing `_connection`, so init and every read/mutation path initialize schema. Columns exactly `seq INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT UNIQUE NOT NULL,evaluation_id TEXT UNIQUE NOT NULL,run_id TEXT UNIQUE NOT NULL,recorded_at_ts INTEGER NOT NULL,payload BLOB NOT NULL`. UPDATE/DELETE triggers use existing append-only error `research events are append-only`. No alteration of k's restrictive selection/inspection CHECK or capture table. A future separate completion table references a reservation; do not scaffold unused kinds/columns now.
+
+Use one `_connection` and `BEGIN IMMEDIATE`: replay source/lifecycle and reservation ledgers; reject duplicate run_id; resolve immutable candidate/source/selection and validate existing k gates/coverage; call the PRIVATE same-connection inspection operation; append reservation referring to that new inspection; commit both before returning any observation/record. Never call public `access_*` inside the transaction (nested connection/locking/race). On insert/commit/error roll back both ledger changes and return no observations. Read-only historical replay itself appends no access or reservation; connection initialization does not convert replay into inspection.
+
+The existing inspection logs all observation release and is sufficient contamination evidence even when the caller never executes or crashes. Every reservation gets a distinct inspection event with k's actor-independent first/repeat ACCESS status. Do not add an `independent` or `reproduced` evaluation status inferred from equality. Exact repeats are comparisons awaiting actual outcomes. New selections still require unseen holdouts under k; candidate/code/data changes never erase contamination.
+
+## Canonical payload and identities
+
+Reservation payload EXACT keys:
+
+`contract_version,rule_id,evaluation_id,run_id,actor,stage,candidate_id,candidate_payload,selection_id,input_id,input_snapshot_id,membership,inspection_id,source_watermark,lifecycle_watermark,binding_id`.
+
+Tokens `research-evaluation-reservation-v1`, `phase18-temporal-v1`; stage `validation`/`oos`. UUID lowercase hex32. candidate_payload is parsed exact existing immutable canonical candidate document (its numbers already typed); selected candidate for OOS. selection_id nonnull only OOS. input_id is capture event identity; input_snapshot_id is the actual reproduced `ResearchInputSnapshot.snapshot_id`, never caller hash. membership is EXACT existing covered membership shape `{input_id,start_ts,end_ts,members}` with only actual requested half-open close members and k's subject keys. No full raw input batch/recipe in reservation metadata. Actual observations returned are only that membership, not IS/later rows. Do not expose canonical records blindly through a future API.
+
+inspection_id refers to the inspection appended in this transaction. source_watermark = MAX(capture seq) and MUST exactly equal the linked inspection's source_watermark, since no capture is appended in this transaction; lifecycle_watermark = linked inspection.seq = MAX(lifecycle seq) after that inspection. Do not compare seq across tables; inspect source refs against source watermark and lifecycle refs against lifecycle watermark. recorded_at_ts is server wall clock and has no ordering authority.
+
+binding_id = sha256 identity of canonical EXACT projection `{contract_version,rule_id,stage,candidate_id,candidate_payload,selection_id,input_id,input_snapshot_id,membership}`. Use reservation contract token here as well. It excludes actor/run/evaluation/access IDs and watermarks, so exact same candidate/stage/input binding remains comparable across reruns. Changed raw fixture values, recipe, candidate parameters/code/seed/rules or frozen selection changes binding/evaluation identity (unsupported rules reject). Every call has distinct evaluation_id and event_id even when binding_id matches. This binding is not yet an actual runtime/environment identity or authentication.
+
+Canonical encoding exactly accepted sorted compact UTF-8 JSON/no BOM/newline, all numeric positions typed `{kind:'int',value:hex(n)}` or existing float.hex objects, never bare JSON numbers. Bounds/watermarks typed ints excluding bool. Existing parameter decimal strings retain admitted spelling. event_id = sha256 prefix + digest of full canonical payload. Reject duplicate/noncanonical JSON/typed hex on replay rather than silently normalizing.
+
+## Replay and historical ordering
+
+Private same-connection replay ordered by reservation seq. Reuse source and lifecycle integrity replay first, then validate exact key sets, tokens, UUID/text/stage/null shapes, canonical bytes/digest and every indexed column. Reproduce candidate/source and snapshot identity/complete membership; require candidate/input captured at or before source_watermark, selection and linked inspection within lifecycle_watermark. Linked inspection MUST match stage, actor, candidate_id (validation) or selection_id (OOS), input and bounds/members exactly. For OOS derive candidate from that selection and require it before inspection. source_watermark MUST exactly equal the linked inspection's source_watermark; lifecycle_watermark MUST equal linked inspection.seq. Each reservation links its own distinct software inspection (validation/oos, never external): forbid inspection_id reuse across reservations and require linked inspection sequences strictly increasing in reservation seq order. Unrelated lifecycle events may intervene; compare linked lifecycle sequences only to each other, never to reservation/source seq. These constraints reproduce serialized atomic call ordering without relying on wall time. Recompute binding_id and full expected payload byte equality, not hash-only comparison.
+
+Historical replay validates inspection/selection against their earlier lifecycle prefixes as k already does. Later inspections/new candidate/selection revisions do not invalidate old reservations. Watermark may be below today's maximum, never above it. Replay cannot authenticate a malicious database owner. Validate evaluation_id/run_id uniqueness as well as SQLite constraints; missing/corrupt referenced records fail before release. No future completion facts reconstructed from a reservation.
+
+## Error order and fixed messages
+
+Public argument validation before opening transaction: validation run_id,candidate_id,input_id,actor text in that order, then k validation bound types/order; OOS run_id,selection_id,actor text. Existing `<field> must be a nonempty UTF-8 string without NUL` and bound messages retained. Then BEGIN/replay all ledgers, duplicate run_id, reference existence, source reproduction/coverage and k chronology/contamination gates, append inspection, derive binding/append reservation, commit.
+
+New duplicate error exactly `run already has a research evaluation reservation`. Reference errors remain k's `research candidate event does not exist`, `research input event does not exist`, `research selection event does not exist`. Persistent reservation corruption uses exactly existing `stored research event failed integrity validation`, one own ERROR + ValueError; preserve source/coverage errors once and original SQLite exceptions. No input/actor/note/payload leakage. Scope integrity normalization with finally reset, preserving concurrent isolation and existing source decode behavior.
+
+## Meaningful tests and acceptance
+
+Actual tmp_path SQLite: accepted validation reservation before final selection proves logged validation access for each considered trial; OOS reservation follows selection and returns exact held-out rows and selected frozen candidate binding; no IS/later leak. Same exact rerun/new run preserves same binding_id but distinct evaluation/inspection/event IDs; actors do not reset repeat access. Duplicate run rejects before inserting either new event, including competing two-connection calls; changed code/parameters/input/selection yields changed binding with preserved old reservation and contamination. Missing/wrong reference and covered-range errors unchanged. Independent canonical bytes/binding hash expected in test, large clocks typed exactly. Reopen/replay old reservation after later inspection/selection remains valid without new writes.
+
+Corrupt payload/hash/indexed run/evaluation IDs, snapshot_id, candidate_binding, membership, linked inspection/actor/stage, watermark mismatch/future references, reused inspection_id, reversed linked-inspection order and canonical typed values fail before data release; legitimate unrelated intervening lifecycle events remain valid. Do not duplicate exhaustive accepted source/type/calendar matrices. UPDATE/DELETE triggers reject. Inject reservation insert failure and commit failure: no orphan inspection/reservation/no data return, original exception preserved. Deterministic actual SQLite contenders with explicit barrier/events (no timing assertions/retry masking) prove duplicate run serialization; existing freeze-versus-inspection coverage remains green. Every new public operation has meaningful end-to-end path coverage; no mocked-self verification.
+
+From repo root, exact existing interpreter:
+
+1. `.venv/bin/python -m ruff check .`
+2. `.venv/bin/python -m mypy --strict backend/src`
+3. `.venv/bin/python -m pytest backend/tests -q`
+4. `git diff --check`
+5. `git status --short`
+
+One full suite per doer/fresh independent reviewer unless a correction/failure justifies another. Preserve full command output/failures; <=5 debugging loops; enabled network/default sandbox/proxy/TLS unchanged. Only declared two files, no STATE/protected docs/pyproject/UI/data edits. Terminal commit `feat(data): reserve run-bound research evaluations atomically (Phase 18.2l)`. Report exact SHA/files/tests/output/deviations/limitations. Independent acceptance then separate STATE docs commit, authorized PR checks/integration, fresh next readiness; no automatic later READY.
+
+## Claim limits and next receipt gate
+
+This task establishes durable reservation + inspection before release, not evaluation completion, worker uniqueness, executable code authenticity, outside-inspection certification, real historical publication history, realistic fills, untouched synthetic truth, or statistical independence. Candidate git40 SHA remains a caller assertion until runtime compares actual checkout/code; synthetic fixture supports software mechanics only.
+
+Next receipt/result readiness must specify immutable one-terminal-outcome-per-evaluation storage (failure retained), actual runtime-produced exact input/env/code/seed/effective execution settings and residual-position/last-eligible-price evidence, and successful/failed meaning distinct from eligible/unverified guarantees. A public result accessor must append the existing OOS inspection on the SAME connection/transaction BEFORE returning any result/artifact/derived metric; failures roll back/no release. No result metadata list, raw getter, download or legacy API path may bypass that gateway once integrated. Internal completion API is for the bound runtime writer, never client attestations treated as actual proof. Narrow unsupported guarantees remain unverified or fail explicitly; do not downgrade designated research execution to ordinary execution.
+
+Readiness changes STATE only. No Python files changed; pytest/ruff/mypy were not
+re-run under WORKFLOW §5. Whole documentation diff and status checked; no
+implementation, suites, installs, workers, push, PR or merge performed here.
+Current task18.2l READY; next_task null; last_completed_task18.2k;
+human_transition_required false; remaining18.2, 18.3 and18.4 NOT_STARTED;
+Phase18 IN_PROGRESS. No accepted runtime, result or historical-validity claim.
 
 ## 3. Important Limitations
 
