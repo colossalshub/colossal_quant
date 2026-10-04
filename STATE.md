@@ -15,7 +15,7 @@ current_phase_status: IN_PROGRESS
 current_task: 18.2
 current_task_status: NOT_STARTED
 next_task: null
-last_completed_task: 18.2j
+last_completed_task: 18.2k
 last_completed_phase: 17
 execution_mode: ONE_TASK_AT_A_TIME
 human_decisions: confirmed
@@ -72,10 +72,11 @@ work.
 
 ### Current task
 
-**18.2 — Enforce the approved stage windows** — NOT_STARTED as a whole.
-18.2j is accepted for durable synthetic source and candidate capture only.
-Selection/inspection barriers and runtime integration remain unimplemented.
-No next task is READY; next_task null, Phase18 IN_PROGRESS.
+**18.2k — Transactional selection and observation-access barrier** — COMPLETE.
+Accepted internal store selection and observation-release mechanics only.
+Remaining 18.2 is NOT_STARTED as a whole; evaluation reservations/results and
+runtime/API/CLI/worker integration require fresh readiness and acceptance.
+next_task null, last_completed_task 18.2k, Phase18 IN_PROGRESS.
 
 ### Phase 17 tasks
 
@@ -104,6 +105,7 @@ No next task is READY; next_task null, Phase18 IN_PROGRESS.
 - [x] **18.2h — Immutable raw research input snapshot and exact identity** — COMPLETE; supplied evidence/content identity only.
 - [x] **18.2i — Reproduce and bind controlled fixture inputs** — COMPLETE; deterministic synthetic recipe reproduction only, no historical source certification or runtime integration.
 - [x] **18.2j — Append-only source and frozen candidate capture store** — COMPLETE; durable capture only, no selection/inspection barrier or runtime integration.
+- [x] **18.2k — Transactional selection and observation-access barrier** — COMPLETE; internal store mechanics only; evaluation reservation/completion/results and runtime integration deferred.
 - [ ] **18.3 — Embargo and gap rules** — NOT_STARTED. Only EG-01's named transitions, with EG-02/EG-03 evidence and exclusions, after preceding acceptance/readiness gates.
 - [ ] **18.4 — Walk-forward window identity** — NOT_STARTED. Only WF-01's explicitly enumerated model and WF-02–WF-04 rules, after preceding acceptance/readiness gates.
 
@@ -177,19 +179,29 @@ are preserved when known in the original records; no missing SHA is inferred.
 | U.6.5 | `3928376` | `—` | Documentation/frontend evidence | [Full historical record](docs/evidence/STATE-archive.md#u65-completion-evidence) |
 | 16.5.6 | `aa0aaff7c21011f3301d97c467f8e7f91dc2007f` | `—` | Documentation/frontend evidence | [Full historical record](docs/evidence/STATE-archive.md#1656-completion-evidence) |
 
-### 18.2j completion evidence
+### 18.2j historical evidence reference
+
+Durable capture implementation `a61fdc9e6841573daa14448509bcddfe93a09411`,
+readiness `47ca51ede7f5248bf396cfa5e5e481978d08fb19`, reviewer completion
+`132d5f34863eacb93ed78ebbfb5ebf796183fb38`: 1210 passed, 123 warnings in
+36.85s; Ruff and strict mypy36 clean; diff/status clean. Durable synthetic source
+and candidate capture only. [Completion](docs/evidence/STATE-archive.md#182j-completion-evidence)
+and [full readiness](docs/evidence/STATE-archive.md#182j-independent-readiness-contract--2026-10-04-asiamanila)
+are historical; squash integration and original SHA lineage limits remain in k readiness.
+
+### 18.2k completion evidence
 
 ```yaml
-task_id: 18.2j
+task_id: 18.2k
 status: COMPLETE
-reviewer_decision: accepted_durable_synthetic_source_and_candidate_capture_only
+reviewer_decision: accepted_internal_store_selection_and_observation_mechanics_only
 reviewer_date: 2026-10-04 Asia/Manila
-git_commit_sha: a61fdc9e6841573daa14448509bcddfe93a09411
-readiness_commit_sha: 47ca51ede7f5248bf396cfa5e5e481978d08fb19
+git_commit_sha: b47ada07407c656063255be738e85b1b1baa135d
+readiness_commit_sha: 05e9212889ba8d3760ac16134ea5777370354bc8
 files_changed:
   - backend/src/quant/data/research_store.py
   - backend/tests/data/test_research_store.py
-tests_added_or_updated: 45 actual tmp_path SQLite persistence, replay, ordering, rollback and concurrency cases
+tests_added_or_updated: 67 actual tmp_path SQLite lifecycle, access, replay, rollback and concurrency cases
 acceptance_commands:
   - .venv/bin/python -m ruff check .
   - .venv/bin/python -m mypy --strict backend/src
@@ -199,160 +211,159 @@ acceptance_commands:
 acceptance_output:
   ruff: "All checks passed!; exit 0"
   mypy: "Success: no issues found in 36 source files; exit 0"
-  pytest: "1210 passed, 123 warnings in 36.85s; exit 0"
+  pytest: "1277 passed, 123 warnings in 39.29s; exit 0"
   diff_check: "no output; exit 0"
   status: "no output; clean before reviewer documentation maintenance; exit 0"
 next_task: null
 remaining_18_2_status: NOT_STARTED
 human_transition_required: false
 deviations:
-  - "Authorized reviewer maintenance also touches docs/evidence/STATE-archive.md: exact 230-line i completion/readiness slice appended verbatim, original archive prefix preserved, compact live SHA/check references added. j readiness, approval and rules remain unchanged. No implementation deviation."
+  - "Disclosed ContextVar scopes own lifecycle replay integrity errors; finally reset, original source errors and concurrent isolation accepted. No contract deviation."
+  - "Authorized reviewer archive maintenance: exact 177-line j completion/readiness slice appended verbatim, original archive prefix preserved; compact live references retained."
 notes: |
-  Serial independent acceptance of committed implementation; no doer STATE edits.
-  Actual source/candidate code and tests checked against standalone j contract,
-  mandatory startup/spec/rules and prior binder/input/coverage/runner boundaries.
-  Same-transaction references, indexed columns, canonical replay, immutable
-  revisions, server ordering, rollback and actual concurrent contenders accepted.
-  One fresh whole reviewer suite, no failure, retry or implementation correction;
-  enabled network/default sandbox/options/plugins/proxy/TLS unchanged.
-  Complete logs /tmp/phase18j-review-{ruff,mypy,pytest,diff-check,status-before}.log;
-  full review /tmp/phase18j-review-report.md. Doer1210/123/40.42s is separate.
-  Doer initial Ruff53 then6 cosmetic diagnostics and both correction cycles
-  retained in /tmp/phase18j-doer-ruff-{1,2}.log and doer report; no suite retry.
-  Pre-first-suite bare JSON nonfinite/huge-number rejection and real replay
-  regressions accepted; no failures lost or historical evidence corrected.
-  Durable synthetic capture only, no selection/inspection/OOS barrier, runtime
-  access gateway, authenticity, unseen market holdout, external-inspection or
-  research-eligibility certification. Code identity remains caller assertion.
-  No dependency, worker, publish, merge, next READY or whole-phase completion.
-  current_task18.2 NOT_STARTED, last_completed_task18.2j, Phase18 IN_PROGRESS.
-  Coordinator byte-validated exact slice/prefix, unchanged j contract/rules/approval
-  and live SHAs before this separate completion commit. Initial docs diff check
-  exit2: archive3423 new blank line at EOF; preserved historical bytes and added
-  authored end marker, final docs diff check exit0. Raw diagnostic retained.
+  Independent actual code/test acceptance; no implementation fixes or amend.
+  Same-connection BEGIN IMMEDIATE replay/gates/insert and COMMIT before release;
+  historical prefix, exact idempotence, all selection-source/candidate watermarks,
+  actor-independent UUID repeat access, shared-clock contamination, criteria-change
+  parent lineage and SC15 new IS reuse with new unseen holdout accepted.
+  Declared trial budget/criteria and outside-inspection claims remain declarations.
+  Scoped error reset, source error preservation and single logging verified.
+  One fresh whole suite; no failure/retry/correction. Complete raw logs
+  /tmp/phase18k-review-{ruff,mypy,pytest,diff-check,status-before}.log;
+  full review /tmp/phase18k-review-report.md. Doer1277/123/41.45s separate;
+  initial Ruff12/mypy3 failures and wrapper limitation retained in doer raw logs.
+  No integrated runtime/API/CLI/worker guarantee, evaluation/result state,
+  historical authenticity, unseen market truth or statistical independence.
+  No dependency, worker, publish, merge, next READY or Phase18 completion.
+  Coordinator independently byte-validated exact177 slice/archive prefix and
+  unchanged k readiness, approval/rules and live SHAs before separate docs commit.
+  Initial docs diff check exit2: archive3602 blank EOF; historical bytes retained
+  with authored end marker, final docs diff check exit0; raw failure preserved.
+  Enabled network/default sandbox/options/proxy/TLS unchanged.
+  current_task18.2 NOT_STARTED, last_completed_task18.2k, Phase18 IN_PROGRESS.
 ```
 
-### 18.2j independent readiness contract — 2026-10-04 Asia/Manila
+### 18.2k independent readiness contract — 2026-10-04 Asia/Manila
 
-Independent readiness opens ONLY **18.2j READY**. Baseline clean branch
-`phase18/18.2j-research-capture`, HEAD/refreshed main
-`7011059bc50591635fb1f26ab176a7b0ca07e54c`. Independent `git ls-remote origin
-refs/heads/main` returned that same SHA with the default sandbox and enabled
-network. Coordinator verified PR12 merge after all three checks SUCCESS and
-empty reviews/threads. Source implementation
-`d7f5edc5f5fcb0fbd00e77347321b21d05259f72` and independent acceptance
-`6ba8c10694a9733d756376f094446e4437a27687` are ancestors of HEAD (both exit 0);
-tracked tree equals the accepted tree (`git diff --quiet 6ba8c10 HEAD`, exit 0).
-Those original source SHAs remain evidence; the merge does not replace them.
+Independent readiness opens ONLY **18.2k READY**. Verified clean branch
+`phase18/18.2k-observation-barrier`, baseline HEAD/refreshed main
+`628f836bb9967500b0481e9cbedef29b6f41b0d9`. Independent `git ls-remote origin
+refs/heads/main` under use_default returned that exact SHA; this is point-in-time
+remote evidence, not a future freshness claim. HEAD has exactly one parent,
+`a4d677ca4bd4447f6f1d24ee1261e227d844d517`. The user `colossalshub` squash-merged
+PR13 at 2026-10-03 18:23:30 UTC; the coordinator did not merge. `git diff --quiet
+c279bc2d7686dfa10bcdad5dc38e2c86385022b5 HEAD` exit 0 establishes the accepted
+integration tree is preserved, including the user's `.gitignore` change.
+Original source `a61fdc9e6841573daa14448509bcddfe93a09411` and reviewer completion
+`132d5f34863eacb93ed78ebbfb5ebf796183fb38` are historical evidence on the preserved
+published branch/PR, NOT ancestors of this squash HEAD (both ancestry checks
+exit 1). No normal-merge or all-checks-SUCCESS claim is made. The neutral Bugbot
+nonfinite-float OverflowError finding was disproved by eight actual SQLite
+replays: expected ValueError and one ERROR each; resolved thread and PR body
+contain the proof. Raw `/tmp/phase18j-bugbot-review-replay.log` and probe remain
+supporting session evidence, not a prerequisite artifact for implementation.
 
-Read full live STATE/AGENTS/WORKFLOW/REVIEWER/INCIDENTS in bounded chunks;
-PROJECT stack, database contracts, execution, conventions, Phases16–18,
-completion and AI rules; full confirmed Phase18 spec; project/backend rules;
-accepted fixture binder, input canonical identity, coverage and runner parameter
-contracts; existing stdlib SQLite connection/schema pattern. No unfamiliar
-third-party calls or new dependency; no probe is required. Delegated trustworthy
-routine decisions authorize the conservative supported contract below.
-This standalone STATE contract governs implementation, not the disposable plan.
-Original post-probe approval, full 18.2i readiness/completion and all history and
-rules are preserved. No archive maintenance is part of this readiness task.
+Read full live AGENTS/STATE/WORKFLOW/REVIEWER/INCIDENTS, relevant PROJECT stack,
+SQLite/research contracts, execution/conventions, Phases16–18, completion and AI
+rules; full confirmed Phase18 spec, project/backend rules, existing store/test,
+fixture/input membership and accepted coverage contracts. Same stdlib SQLite
+connection pattern, json/hashlib/time plus uuid4, no unfamiliar third-party
+calls or dependencies; no probe required. Human delegated trustworthy routine
+choices and continuation authorize this conservative refinement. All previous
+approval, rules and j readiness/completion records remain byte-preserved.
 
-## Scope decision
+This contract governs implementation, superseding disposable planning notes and
+narrowing the historical j next-extension reservation/result language: ONLY
+selection and observation-access logging now; separately gated evaluation
+reservation/completion/result publication afterward, then runtime/API/CLI/worker
+binding and guarded public access. The lifecycle table is private schema support
+inside the existing store connection, not a separate migration/orchestration
+project. One existing implementation file plus its mirrored test is the bounded
+reviewable deliverable. No archive maintenance or implementation in readiness.
 
-Do NOT bundle first source capture, candidate contract, final selection, inspection admission and evaluation reservation state machine into one initial task. They require different acceptance invariants and would exceed a narrow reviewable store task. 18.2j creates usable durable source+candidate capture with actual DB ordering, not another unused pure helper. Immediately dependent18.2k extends THE SAME store with atomic selection/holdout inspection/reservation barrier before any runtime/API access integration.18.2j cannot claim OOS prevention; no frozenboolean substituted for authorization. No automatic nextREADY or wholephaseclaim.
+## Bounded usable scope
 
-ONLY new backend/src/quant/data/research_store.py and backend/tests/data/test_research_store.py. stdlibSQLite/json/hashlib/time + accepted fixture/input/temporal imports, no dependencies/probes. No meta_runs/schema/router/worker/runtime/UI changes. Single metadataSQLite database path supplied by caller, dedicated research_events_v1 table in that database, no separateDB singleton. Shared meta_runs integration later.
+Implement actual store operations that atomically freeze selection and log observation release BEFORE returning data. Separate later task handles evaluation reservation/completion and guarded result publication: do not invent completed results or certify evaluation from an input access event. Each repeated observation release gets a distinct access event, marked repeat access, never independent evidence. Runtime/API integration must use these operations later; no integrated OOS guarantee claimed now. No new public unloggedrawgetter.
 
-#### Public internal interface
+## New public internal APIs
 
-Frozen slots StoredResearchEvent(seq:int, event_id:str, kind:Literal['input','candidate'], recorded_at_ts:int, canonical_bytes:bytes). Direct construction unvalidated, noeligibleflag.
-init_research_schema(db_path:Path)->None
-capture_fixture_input(db_path:Path, *, recipe:Mapping[str,object], document:Mapping[str,object])->StoredResearchEvent
-freeze_research_candidate(db_path:Path, *, document:Mapping[str,object])->StoredResearchEvent
-_read_research_event(db_path:Path, *, event_id:str)->StoredResearchEvent | None (PRIVATE helper; no public raw-source getter)
+Frozen slots ResearchLifecycleEvent(seq:int,event_id:str,kind:Literal['selection','inspection'],recorded_at_ts:int,canonical_bytes:bytes); ResearchObservationAccess(event:ResearchLifecycleEvent,observations:tuple[ResearchObservation,...]). Direct construction unvalidated; noeligibleflag.
+freeze_final_selection(db_path:Path, *, document:Mapping[str,object])->ResearchLifecycleEvent
+access_validation_observations(db_path:Path, *, candidate_id:str,input_id:str,start_ts:int,end_ts:int,actor:str)->ResearchObservationAccess
+access_oos_observations(db_path:Path, *, selection_id:str,actor:str)->ResearchObservationAccess
+record_external_inspection(db_path:Path, *, input_id:str,start_ts:int,end_ts:int,actor:str,declared_at_ts:int | None,note:str)->ResearchLifecycleEvent
 
-Private read is INTERNAL persistence replay only, not an exported researcher observation/API endpoint. Public capture returns internal persistence records for future guarded adapters; those records must not be serialized as unlogged API input dumps. Future external input/result access must go through18.2k transactionalinspection gateway; directDB access cannot be independently certified. Internal module does not infer researchers have inspected just by engine/privatevalidation reads. Docs say no publicrawobservationread path currentlyintegrated.
+Every returnedtuple contains ONLY explicitly requested halfopenclosemembers, never fullsnapshot/recipe/selectiondata. Publiccapture records j remain internal and MUSTNOT be blindly serialized by futureAPI. Privateconnectionreplay used inside samewritetransaction; no pathreplaynestedconnection. No publiclifecycle rawpayloadread added.
 
-#### Input capture, canonical persistence
+## Storage/order/identity
 
-Every input capture CALLS bind_controlled_fixture(rawrecipe,rawdocument), never trusts suppliedrecords/hashes. Persist full accepted snapshot.canonical_bytes plus recipe's exacttypedhex canonicaldocument (samei convention) inside canonical inputeventpayload containing exactfields contract_version='research-store-input-v1',recipe,snapshot. Here recipe/snapshot are canonicaltyped JSON values decoded viajson.loads from independentlyvalidatedbyte representations; snapshot contains fullrawrowcontent typedhex, source/revision/provenance. All integers inclanchors preserved beyond4300digits, no strdecimal/globalsetting, int/floatkind/signedzero preserved. Inputevent canonical json.dumps(sort_keysTrue,separators(',',':'),ensure_asciiFalse,allow_nanFalse).encodeUTF8 noBOM/newline; event_id='sha256:'+SHA256(payload). Exactsnapshot_id reconstructible fromnested snapshotcanonicalbytes; store verifies reproduction every capture AND upon reading an inputevent (decode typedhex into rawrecipe/document then acceptedbinder). No referencefetch/newverifier. Meaningful local decoder exact declaredshapes/kinds; unknown tags reject, no broadfallback. Store malformed/tampered persistedpayload detected ratherthan silentlyrepaired. No inherited10gfingerprint substitution.
+New research_lifecycle_v1 table(seq INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT UNIQUE NOT NULL,kind TEXT CHECKkindselection/inspection,recorded_at_ts INTEGER NOT NULL,payload BLOB NOT NULL,selection_revision TEXT,experiment_id TEXT,hypothesis_id TEXT), UNIQUE(experiment_id,hypothesis_id,selection_revision); nullindexedfields forinspections. UPDATE/DELETEtriggers sameappend-onlypattern. Sourceevents unchanged. Everylifecyclemutation BEGINIMMEDIATE, replaysource/candidate/lifecycleintegrity, performchecks, append,COMMIT before returning observations; failureROLLBACK no release. Sameconnection bothtables.
 
-#### Frozen candidate document (delegated conservative supportedcontract)
+Lifecycle serverseq authoritative for lifecycleordering; sourceeventseq distinctdomain. Every inspection records source_watermark=MAX(research_events_v1.seq) in same transaction. Thus candidate.seq<=inspection.source_watermark proves candidate alreadycommitted at release/manualreport; do not compare independentseqdomains or walltimes. Wallrecorded_at=time.time_ns//1000000 canrollback/repeat, never callerbackdated. Manualdeclaredtime is an attributed claim stored separately; cannot undo contamination or establishactualinspectiontime.
 
-Exactrequired topfields contract_version,rule_id,experiment_id,hypothesis_id,candidate_revision,parent_candidate_id,strategy_version,strategy,parameters,code_id,seed,fitted_artifacts,in_sample_input_id,in_sample_start_ts,in_sample_end_ts,trial_index,trial_count. Tokens research-candidate-v1,phase18-temporal-v1,strategy='buy_hold'. IDs/text nonemptyUTF8 withoutNUL/surrogates, no trim/case/Unicode normalization. parent_candidate_id explicitNone or existingcandidate event_id fromsameexperiment/hypothesis; previousrevision content neverupdated. candidate_revision opaque unique withinexperiment/hypothesis, cannot recapture changedcontent under same revision. code_id full40lowerhex gitcommit identity; capture binds callerassertion, runtime MUST compare actualexecutingcode later. strategy_version suppliednonemptystring, not label-as-certification.
+Canonical sortedcompactUTF8JSON, acceptedtypedhexALLnumbers, noBOM/newline, eventidSHA256prefix. Selectioncontentid deterministic/idempotent exactrecapture preservingoriginalseq even after laterinspection; NEW selectionrevision cannot use inspectedholdout. Each inspection payload includes server-generateduuid4.hex access_id so everycall distincteventid, action validation/oos/external, actor, declared_at_ts (nullforsoftwareaccess), note(nullforsoftwareaccess), input_id,bounds,source_watermark, subject membership, candidate_id/selection_id applicable elseNone. Fixed contractversions research-selection-v1/research-inspection-v1 andrulephase18-temporal-v1. Typedreplay verifiesdigest/canonicalencoding/indexedcolumns/references/subjectmembership; malformedpersistentdatafailintegrity, no hashtrustshortcut. Existing j decode/replay semantics preserved.
 
-parameters exactkeys starting_balance_usdt,trade_size,deploy_pct,maker_fee,taker_fee. Cash finitepositivefloat wholeUSDT; size positivefinite decimalstring exactly representable at6decimalplaces (accept '1', '1.0' and other admittedlexemes; no requirement exactly6writtenfractionaldigits), deployfinite decimalstring[0,1], feesfinite decimalstrings>=0, consistentacceptedrunnerconstraints. Preserve originalstringlexemes inidentity, no normalization: actualexecution must later use exactfrozenparams. Validate withstdlibDecimal/contextfree exactplace check; do not importresearch_runner privates/Nautilus. Integersforfees rejected; no numericdefaults.
+## Exact final selection document
 
-seed explicitNone (deterministic supportedBuyHold), fitted_artifacts explicitemptylist/tuple (unsupported fittedmodels rejected). This records genuine applicabilityabsence; no optimizer/preprocessing/EMA support. in_sample_input_id existingcapturedinputevent in sameDB, reverifiedfixture contents, fullycovers complete IS range under acceptedvalidate_bar_coverage applied to exact closemembers. Raw source mayinclude laterobservations but candidatecapture only binds intendedIS membership; it does not grant research access to later observations. CompleteIS endpoints integerexcludingbool,start<end,oninputdailygrid. IS-onlycapture cannot select using validation/OOS implicitly. trial_index/count int excludingbool, countpositive, index1..count explicit. Count is declared plannedtrialbudget, NOT proof allconsideredtrials recorded; finalselection18.2k must enumerate actualconsideredcandidate IDs/criteria/results and checkconsistency. Finalselectionrecord not smuggled into candidatefreeze.
+Requiredkeys ONLY contract_version,rule_id,experiment_id,hypothesis_id,selection_revision,selected_candidate_id,considered_candidate_ids,selection_criteria,validation,input_id,oos_start_ts,oos_end_ts. selection_criteria explicitnonemptytext (criteriaidentity/recipe declaration, not inferred frombestmetric). IDs/textvalidUTF8/noNUL/surrogates,nounrequestedtrim. considered_candidate_ids nonemptylist/tupleuniqueIDs; orderretained. validation explicitNone OR exact {input_id,start_ts,end_ts}; this one commonrange is permitteddevelopmentvalidation for all consideredcandidates. input_id is finalholdoutcapturedsourceevent; oosbounds integerexcludingbool,start<end,gridaligned, actualexactcoverage. No globalnumericdefault/gap/window inferred.
 
-Canonicalcandidate contains exactwire fields; allnumeric values replaced acceptedtypedhexobjects (timestamps/trialints andcashfloat), seedNone/listempty retained, decimalstrings preserved. canonicalJSON sameexplicitconvention; event_idSHA256payload. Persist trueimmutable frozenparameters/code/input/lineage/trialdeclarations beforevalidationcandidate use. recordedserverseq later validationauthorization provesfreeze precedes inspection; callerbackdatedtimestamp cannot manufactureordering. No caller frozen_at/recorded_at field accepted.
+All consideredids replay validfrozencandidates fromsameexperiment/hypothesis; selectedid occurslist. Each declares sametrial_count N==listlength, trial_indexexactset1..N; binds exact immutable parameters/code/seed/artifacts/ISinput/ranges via candidateids, not duplicatecaller overrides. Existing assertions retained; runtime later verifies actualexecutingcode/params exactly. No optimizerallowed. Complete selectiondata identity consists eachcandidateISinput+ISbounds and optionalcommonvalidationinput+bounds; actualmembertuples derived/persisted, not callerhash. If validationused, require everycandidate previouslypassed access_validation_observations on exactlythatinput/range, committedbeforeselection; require candidate existed before ANY earlier inspection of thatvalidationmembership (usinginspection watermark). If skippedNone require no validationaccess forconsideredcandidates (explicitskip, not ambiguoushiddenuse).
 
-#### Actual SQLite lifecycle
+IS precedes validation ifpresent; validation precedesOOS else everyIS precedesOOS. Touchingendpoints allowed withoutgapguarantee. Every selectionIS/commonvalidation membership disjoint finalOOS membership; noholdoutobservationsallowedselection even ifinputIDrenamed. Any priorinspection of finalOOSsubject membership (software/manual, anyactor/experiment) prevents NEWselectionfreeze. Existingexactselectionrecapture idempotent, doesnot permit alteredfreeze afterinspection. Exactcurrentselectedcandidateandselectionmetadata retained forever. No publicOOSaccess canoccur without committedselection event.
 
-Table research_events_v1(seq INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT NOT NULL UNIQUE,kind TEXT NOT NULL CHECK(kind IN('input','candidate')),recorded_at_ts INTEGER NOT NULL,payload BLOB NOT NULL). Candidate uniqueness separatecolumns experiment_id,hypothesis_id,candidate_revision nullableforinput; UNIQUE(experiment_id,hypothesis_id,candidate_revision). No otherfuturetablefamilies now. The fixed kindCHECK remains input/candidate. Future18.2k lifecycle operations use a separate append-only lifecycle table with its own serverorder, explicitly referencing source/candidateevent IDs; no attempt to ALTER this CHECK or silently repurpose kinds. A transaction covers both tables when enforcing the futurebarrier; capture seq and lifecycle seq are distinct domains, never compared as globalorder. Candidate existence under the same BEGINIMMEDIATE transaction proves prior committedfreeze. Add BEFOREUPDATE/BEFOREDELETE triggers RAISE(ABORT,'research events are append-only'); noUPDATE/upsert/REPLACE inpubliccode. This prevents applicationaccidentalmutation, not malicious directSQLiteowner edits. Actual payload+digest+kindverified whenreading.
+## Criteria-change lineage and claim limits
 
-Everyoperation opensshortlivedSQLiteconnection, WAL,busy_timeout5000, closesfinally; schemas initialized idempotently byeach publicentrypoint includingread to avoidmissingreadmigration trap. init ensuresparents Path.mkdir. Mutations BEGINIMMEDIATE, validate foreignparent/input and uniqueness inside samewritetransaction, capturewallclock usingtime.time_ns()//1000000, insert, COMMIT; exceptionROLLBACK and propagate. DBseq authoritative committedserialization order, clockwallms supplemental can repeat/go backwards. No backdating argument/clampedfabricatedtime. Identicalsamekindpayload re-capture is idempotent returnoriginalevent (samefreeze, seq/timestamp); changedrevisionpayload rejects, no overwrittenrecord. Capturevariantinput differentrecipe/payload distinctevents. Failurebeforecommit no orphancandidate; concurrentduplicatecaptures oneevent; concurrentrevisionconflict exactlyonewinner, otherexplicitfailure. Read payload hash/canonicalencodingvalidity and requiredkind thenrevalidate source/candidate references; no treating externallymodifieddataastrusted. Test SQLiteoperationerrorrollback without swallowing/loggingduplicateframeworkerrors.
+For NEW selection revisions, compare selection_criteria with the latest earlier committed selection in the same experiment/hypothesis (highest lifecycle seq; historical replay uses only its earlier prefix). If criteria differ, selected_candidate_id must differ and its validated earlier-committed parent chain must reach the previous selected_candidate_id. Otherwise raise exactly `changed selection criteria require a new candidate revision with prior selection lineage`. Run after chronology and before validation access proof. Exact original recapture returns before this current gate. Test actual SQLite rejection of changed criteria with same selected candidate or unrelated replacement, acceptance of linked new candidate with unseen holdout, and preserved prior selection. This implements ST-02 without adding candidate fields or inventing optimizer results.
 
-#### Errors/tests
+The declared considered list and N/index set validate the declared trial budget only. They cannot prove all human-considered alternatives were recorded; unlogged/manual alternatives remain unverified (Phase19 multiple-testing controls are outside scope). Criteria text is an attributed declaration, not proof of actual optimization or selection outcomes. All claimed validation proof is logged committed access to the exact range for each declared considered candidate.
 
-Ownvalidation errors oneERRORquant.data.research_store plusidenticalValueError; acceptedbinder/coverageerrors propagateonceunwrapped. Private missingread returnsNone. No arbitrarypayloadinerrors; any SQLiteoperationalfailure propagatesoriginal without silentadaptation.
+## Exact persisted payloads and replay
 
-Exact candidate failureorder/messages:
-1. CandidateMapping/exacttopkeys: `candidate must contain exactly the declared fields`.
-2. contract_version,rule_id,strategy exacttokens in thatorder: `<field> must be <token>`.
-3. experiment_id,hypothesis_id,candidate_revision,strategy_version,in_sample_input_id text in thatorder: `<field> must be a nonempty UTF-8 string without NUL` (surrogatesreject). parent_candidate_id: None or sametexttype with `parent_candidate_id must be null or a nonempty UTF-8 string without NUL`. code_id then requires str/fullmatch `[0-9a-f]{40}`: `code_id must be a 40-character lowercase hexadecimal git commit ID`. This is a callerassertedcodebinding, neverauthentication; runtimecomparesactualcode.
-4. parametersexactkeys/Mapping: `parameters must contain exactly the declared fields`. Cash type/finite/positive/whole: `parameters.starting_balance_usdt must be a finite positive whole-USDT float`. Do not roundcash. Decimal lexical validation in trade_size,deploy_pct,maker_fee,taker_fee order: `parameters.<field> must be a finite decimal string` (strrequired, DecimalInvalidOperation/nonfinite rejected). For eachvalue immediately check constraints: `parameters.trade_size must be positive and exactly representable at 6 decimal places`; `parameters.deploy_pct must be between zero and one`; `parameters.maker_fee must be nonnegative`; `parameters.taker_fee must be nonnegative`. Use runner-equivalent contextfree digit/exponent/trailingzero representability: accepts size'1' and harmless extra zeroes, preserves originallexemes; no stricter inputformat imposed.
-5. seedmustNone and fitted_artifacts emptylist/tuple: `seed and fitted_artifacts must be explicitly absent for buy_hold`. Emptycontainers canonicalize to JSONemptylist, declared applicabilityabsence ratherthanmodeltrust.
-6. in_sample_start_ts,end_ts types in order: `<field> must be an integer excluding bool`. start<end: `in_sample_start_ts must be less than in_sample_end_ts`. trial_index/count types in order sameintegererror; count>0: `trial_count must be positive`; index1..count: `trial_index must be between one and trial_count`.
-7. BEGINIMMEDIATE resolves input first: missing/wrongkind -> `candidate input event does not exist`. Sourceintegrity/binderfailures propagate existingvalidationonce. Check ISstart thenend congruence to capturedanchor: `in_sample_start_ts must align with the declared daily grid`; `in_sample_end_ts must align with the declared daily grid`. Select exact ISclosemembers and call acceptedcoveragehelper; completecount/empty/rowerrors use its exactmessages, no relog. Later/contextrows retained in sourcepayload but not allowedselectionmembership.
-8. Optionalparent then resolves: missing/wrongkind -> `parent candidate event does not exist`; presentdifferentexperiment/hypothesis -> `parent candidate does not match experiment and hypothesis`. Then candidate_revisionuniqueness: samecanonicalid returns originalevent, changedcontent under sameexperiment/hypothesis/revision -> `candidate revision already has different frozen content`.
-9. Persist/replay malformedencoding/digest/kind -> `stored research event failed integrity validation`. Validlyencodedstoredsource/candidate revalidation that fails acceptedfactory/helper propagates that firsterroronce; do not log integritywrapper in addition. No handwaving unspecified messages atreadiness.
+Selection payload EXACT keys: contract_version,rule_id,document,candidate_bindings,selection_memberships,holdout_membership. document is the exact validated finalselection document above, with integerpositions typedhex (oosbounds and nestedvalidationstart/end), tupleconsidered canonicalizedlist. candidate_bindings ordered list matching consideredids; each exact {candidate_id,candidate_payload}, candidate_payload parsed exact immutablecanonicalcandidate JSON (alreadytypedcash/IS/trialnumbers), binding actualparams/code/seed/artifacts/trial/ISreferences without caller-overrides. selection_memberships orderedlist one per candidateIS, then commonvalidation ifused, each exact {role,candidate_id,input_id,start_ts,end_ts,members}; role='is'/'validation', candidate_id null onlycommonvalidation. holdout_membership exact {input_id,start_ts,end_ts,members}. Bounds typedhexints. No rawOHLCV/recipe leaked in these metadata structures. Candidate/input IDs reference internalsourceevents and are integrity-replayed.
 
-Focusedactualtmp_pathSQLitetests: roundtriprawfixture+candidate exactcanonicalpayloads/knownIDs; reopenedstore durable; idempotentseq; changedcode/params/input WITH NEWcandidate_revision captures distincteventid; changedcode/params/input under SAMEcandidate_revisionrejects with exactfrozencontenterror; samecontent/samerevisionidempotent; parentwronggroup/missingreject; nonIS/missingcoverage/invalidtrial/unsupportedartifacts/seed reject beforecandidateinsert. Typedhex hugeintegerinputroundtrip and no10gfloatcollision; capture tamperedsource failsactualbinder beforeinsert. Triggerupdate/deletereject, corruptionreadonlyvalidationfail; internalread has nocertification/eligibility flag. actualserverseq independentofmonkeypatchedbackwardwallclock; twoSQLiteconnections/threads contenders oneidempotentevent and revisionconflict no partialrows, deterministicbarriers no timingassertion. Injectcommit/inputvalidationfailure rollback withoutswallowing. Noexhaustivetype/helpermatrix, noactualengine needed; no DB writesoutside tmp_path.
+Each members value is a chronological unique list of fixed6elementarrays [venue,symbol,timeframe,source_family,typed(ts),typed(close_ts)]. Exact acceptedstrings and {'kind':'int','value':hex(n)} clockobjects; no alternatives/objectaliases/encodedstringtuplehash. Computed from reproducedcoveredrows, neveraccepted from publicdocument. Every membership derives onlyexplicitclosemembers; completecoverage checked beforecanonicalization. Duplicate subjectkeys cannot be masked by revisions.
 
-#### Acceptance and next mandatory barrier
+Inspection payload EXACT keys: contract_version,rule_id,access_id,action,access_status,actor,declared_at_ts,note,input_id,start_ts,end_ts,source_watermark,members,candidate_id,selection_id. Versions research-inspection-v1/phase18-temporal-v1. access_id serveruuid4.hex32lowerhex. action validation/oos/external. access_status first_access/repeat_access/external_declaration. Allnumbers (bounds, watermark, nonnullclaimedtime) exacttypedint; strings/null unchanged. Forvalidation candidate_id required, selection_id null; foroos selection_id required,candidate_id null; forexternal bothnull, note required and claimedtime optional. Softwareactions note and declaredtime null. Actorvalidnonemptytext. No wirecaller access_status/UUID/watermark/members field accepted; server derivesall.
 
-Rootexistingvenv exact .venv/bin/python -m ruff check .; .venv/bin/python -m mypy --strict backend/src; .venv/bin/python -m pytest backend/tests -q; git diff --check; git status --short. Onecompletedwholepytest doer andfreshreviewer, repeats onlynewfailure/correction. Enablednetworkuse_default, noinstalls/frontendchanges/checks. Completeoutputs/failuresretained max5loops. One terminalcommit feat(data): capture immutable research inputs and candidates (Phase 18.2j). Independentacceptance/separateSTATE beforeauthorizedPRmerge andnextfreshreadiness.
+Repeat scope: prior softwareinspection with sameaction and (validation: candidate_id,input_id,start,end; oos:selection_id). Actor DOESNOT reset scope. First if none earliercommittedmatching, repeatotherwise; everycall stilldistinctuuid/event. external alwaysexternal_declaration, never claimsindependentaccess. These labels describe loggedaccess only, not independentstatisticalevaluation/reproductionresult. No actualresultpublished in k.
 
-Immediatelynext storeextension adds a separate append-only lifecycle table (source kindCHECK unchanged) and MUST enforce: enumerateconsideredtrials and exactselectioncriteria/selectiondataidentity; candidatefrozen beforeANYvalidationaccess; finalselectionfrozen beforeANYholdoutobservations/resultsaccess. Register exactholdout identity(boundactualsourcekeys/range, preventrenamedoverlap escape), record manualinspection declaredtime separately fromserverseq. BEGINIMMEDIATE serialization for finalselectionfreeze vsinspection/evaluationreservation, inspectionofsame/overlappingactualobservations blocks laterselection/revision usingthatuntouchedholdout; requiresnewunseenholdout. Exactrerun distinctreservation/resultpreserved, markedreproducibilitynotindependent. No finalselection authorization until this extension accepted. Then gateway/API/CLI/worker bindactualcandidateparams/code+fixture at runtime and every publicresult/inputread logsinspectiontransaction.18.2j completion certifiesdurablecapture only; no actualOOSbarrier yet, no implicitphasecompletion.
+Lifecycle replay on sameconnection: parseexactcanonicalJSON with duplicatekey/noncanonicaltypedhex rejection; payloadhash/kind and indexedcolumns match; exactpayloadkeysets; UUIDformat/conditionalnulls/actions/status checked. Selection replay replayscandidate/inputevents, recomputesallbindings/memberships/fullcanonicalpayload and requiresbyteequality; inspection replay replaysreferences and recomputessubjectmembership. Require referencedsourceevents seq<=persistedsource_watermark forinspection; selectedselection lifecycle seq<inspectionseq. Recomputefirst/repeatstatus against ONLY earlierinspectionseq events; no self/later/cyclicreferences. Selectionvalidationproof/contamination reconstructed against ONLY earlierlifecycleevents, so laterinspectioncannot invalidate anoriginallegitimatefreeze. Never truststoredmembers withoutreproduction or indexedrevision withoutdecodedagreement. Integrityfailure exactexisting `stored research event failed integrity validation`; no hash/UUID authenticatesmaliciousSQLiteowner.
 
-Synthetic recipe generation is predictable to its author. Neither candidate capture nor the later inspection barrier certifies an unseen market holdout, secret data, independent evidence or absence of external inspection. Supported claims stay reproducible synthetic contents and software temporal/access mechanics, separately from researcher declarations. Later holdout contamination keys must bind actual source/revision lineage and observation membership, including overlaps across renamed snapshots/revisions; a new hash alone cannot erase inspection.
+Freeze idempotence: validatepublicdocument and deriveexactbindings/memberships via immutablecandidate/source replay; lookup sameexperiment/hypothesis/revision. If originalpayload exactlyequalsnewderivedpayload, replayoriginalagainstits ownhistoricalseq andreturnoriginalBEFORE applying currentinspection checks. Changedpayload under samerevision raisesrevisionconflict. NEWrevision applies fullcurrentbarrier beforeinsert. This prevents genuineexactrecapture beingblocked bylaterinspection while forbidding after-the-factchangedselection. No idempotence shortcut trusting callerhash or skippingoriginalintegrity.
+
+## Contamination subject and access semantics
+
+Capturedinputs syntheticBTCcontinuousdailyonly. Subjectkey explicitly (venue,symbol,timeframe,source_family,ts,close_ts), source_family='controlled-fixture:controlled-daily-linear-v1'. Intkeys exact. Ignore snapshotID, recipehash, revisionID, payloadprice andsourceanchor differences for contaminationmatching WITHINthisfamily: sharedrealbar-clockobservations across alternate syntheticrecipes are conservativelytreatedpreviouslyinspected. This restricts, never certifiesunseenmarkettruth. No unknownreal-sourcemapping/default accepted. Membership is finite actualcompleteclosememberkeys, not merelyintervalhash. A renamednewrevisionorpricechange cannot reset sameclocks' inspection. Inspect allledgeractors/experiments: newexperimentdoesnoterase sameholdoutaccess.
+
+Validationaccess: replaycandidateexisting, inputfixturefullcoverage; candidateISend<=validationstart; initialcandidate must predate every earlierexternal/oosinspection of requestedvalidationkeys (candidate.seq<=watermark), else reject. Do not prohibit repeatedvalidationaccess for samefrozencandidate; softwarevalidationrecord sourcewatermarkprovesexistingfreeze. Requestedvalidation keys must not overlap ANYregisteredselectionOOSkeys, and must not overlap anyprioroos/externalinspectionkeys: OOS cannot silentlybecomevalidation in this bounded access path. SC15 remains supported: a NEWcandidate_revision may explicitly declare previouslyinspectedOOSobservations as its NEW IS range/input (j capture permits this), retainingparentlineage, and then freeze NEWfinalselection with a genuinelyuninspected disjointholdout. Priorresults remainunchanged and oldholdout is nowdeclareddevelopmentdata, neverindependentfinalevidence. This reclassification doesnot require silentvalidationreuse or eraseledgerhistory; commonvalidation ifused must satisfy this boundedgate. A newhash/revision cannot reuseoldholdout as finalOOS.
+
+OOSaccess: replayvalidselection, resolve exactholdoutinput/range/memberkeys, append inspection THENreturnONLYthoseobservations. Firstaccessfrozenbeforeinspection by transactionexistence. Repeatedsame selection permits reproduction/inspection, distinctevents; no independenttrialclaim. Newselection afteranysuchaccessrejects same/overlappingholdout. Access is not executionreservation/result and cannot claimcompletedOOS.
+
+Externalinspection: validatescapturesource/fullcoverage, actor+note explicitvalidtext, declared_at integerexcludingboolorNone. Appends regardlesswhetherselectionexists, never blocksrecording truthfulcontamination. Mayrecordearlierclaimedtime; applications cannot proveoutsidebehavior. Does not returnobservations. Existing frozenresults/selections unaffected; laterselectionnewunseenholdoutrequired. Unknownunreportedinspection/predictablesyntheticprices remainunverified.
+
+## Exact validation order/messages
+
+OneownERRORquant.data.research_store and identicalValueError; acceptedsource/coverageerrors propagateonce. No actor/note/payload leakage. Reuseexistingintegritydecoder/error forstoredpayloads.
+Selection order: exactkeys; version/ruletokens; textfields experiment/hypothesis/revision/selected/input/criteria; consideredcontainer/IDs/duplicates; validationNoneorfields/text/int/order; OOSint/order; BEGINIMMEDIATE consideredreplay/group/trials/selectedmembership; derivecanonicalbindings and samecontentrevisionidempotence/conflict beforecurrentinspectionchecks; immutable source coverage is performed while deriving bindings/memberships before revision comparison; for NEW revisions only, chronology; criteria-change lineage; validationaccessproof; selection/OOSmembershipdisjoint; priorholdoutinspection; append.
+Messagesfixed:
+`selection must contain exactly the declared fields`; `<field> must be <token>`; `<field> must be a nonempty UTF-8 string without NUL`; `considered_candidate_ids must be a nonempty list or tuple of unique candidate IDs`; `validation must be null or contain exactly input_id, start_ts, and end_ts`; `<field> must be an integer excluding bool`; `<range>.start_ts must be less than <range>.end_ts`; `<field> must align with the declared daily grid`; `selection revision already has different frozen content`; `research candidate event does not exist`; `research input event does not exist`; `considered candidates must match experiment and hypothesis`; `considered candidates must enumerate the declared trial budget`; `selected candidate must be considered`; `research ranges must be chronological and nonoverlapping`; `validation access must precede final selection for every considered candidate`; `validation was inspected before candidate freeze`; `validation absence conflicts with recorded validation access`; `selection data must not overlap final holdout observations`; `final holdout observations were already inspected`; `validation observations overlap a final holdout or OOS inspection`; `research selection event does not exist`; `changed selection criteria require a new candidate revision with prior selection lineage`.
+Accessvalidationparameterchecks candidate/input/actor text,start/endtypes/order thenrefs/coverage/chronology/overlap/watermark; OOS selection/actor textthenrefs; external input/actor/note textthenbounds/declaredtime types/orderthenrefs/coverage. Coveragemessagesexacthelper; no redundantexhaustivematrices. Missingorcorruptrecordnotempty/unverifiedfallback.
+
+## Focused actual DB tests and acceptance
+
+tmp_pathSQLiteactualfreeze thenvalidationaccess, optionalvalidationselection, finalfreeze thenoosaccess; exactreturnedmembership noIS/laterrows; parameters/code remainboundcandidateids; explicitcount/trialmismatch/selectednotconsidered/validationabsencefailure. Independentcanonicalbytes/IDs, typedlargeclocks, samecontentidempotence vschangedrevisionfailure. Backdatedwallclock/manualdeclaredtime cannotoverridewatermark/ledgerordering. Inspectionbeforeselectionreject, legitimateexactrerunaccesspreserveddistinct, newcandidate/newexperiment/newsnapshot/changedrecipe overlappingkeys cannotresetcontamination; disjointunseenkeys allownewselection. Candidatecapturedaftermanualinspectionfailsvalidationwatermark, candidatealreadyfrozenpermitsdeclareddevelopmentvalidation only ifnotOOScontaminated. Fakecorruptsource/lifecycle/indexedcolumn/subjectmappingfailsbeforedatareturn. UPDATE/DELETEtriggers reject.
+TwoactualSQLitecontenders freezevsmanualinspection deterministicbarrier: selectionfirst commitspermitsfreeze theninspection; inspectionfirst preventsnewfreeze; neverbothsuccessfulcontradictoryclaim. Injectinspectioninsert/commitfailure -> noobservationsreturned,nororphanselection; no timingbasedassertions/retrymask. Tests previoussource/capturecontract unchanged, no engine/UI/deps/networkrequired. Eachnewfunctionmeaningfulpublicpathcoverage; do notduplicate acceptedtype/calendar/helpermatrices.
+
+Rootexistingvenv exact .venv/bin/python -m ruff check .; .venv/bin/python -m mypy --strict backend/src; .venv/bin/python -m pytest backend/tests -q; git diff --check; git status --short. Onefullsuite doer/freshreviewer exceptjustifiednewfailure/correction; enablednetworkdefault unchanged,max5loops, completefailure/outputretained. One terminalcommit feat(data): enforce transactional research observation barriers (Phase 18.2k). SeparateindependentacceptanceSTATE; authorizedPRchecks/merge thenfreshnextreadiness. No automatic later READY or completion.
+
+Claimlimit: actualstoregateway selection/observationmechanics only, not integratedAPI/worker/CLIrun, completedfinalevaluation, historicalsourceauthenticity, undetectedexternalbehavior/unseenmarkettruth/statisticalindependence. Next boundedextension evaluationreservations+immutablecompletion/result-accessinspection; then actualruntimecandidate/fixturebinding and API/CLI/worker integration. Namedgaps18.3 andexplicitwindows18.4 stillfollow acceptedgates. NoPhase18completionfromthisstorealone.
 
 
-#### Explicit integrity and transaction refinements
-
-Every persisted input row must have null experiment_id, hypothesis_id and
-candidate_revision columns. Every candidate row must have those three columns
-exactly equal to the corresponding decoded canonical payload fields. Read and
-reference replay checks this as part of integrity validation before trusting the
-uniqueness index. A payload digest alone cannot certify those indexed columns.
-Tests tamper an indexed column as well as payload/digest/kind.
-
-Canonical JSON parsing and exact re-encoding must reproduce persisted bytes;
-duplicate keys, noncanonical JSON and noncanonical typed-hex spellings fail with
-`stored research event failed integrity validation`. Decode integers using
-`int(value, 16)` and floats using `float.fromhex(value)`, only at the exact
-contract numeric positions and with exact kind/value shapes. Re-encode using
-`hex(integer)` / `float.hex()`; unknown tags or wrong numeric kinds fail, with
-no decimal conversion limit, coercion or global setting change. Semantic
-accepted binder/coverage failures still propagate once unchanged. Candidate
-replay rebuilds the exact validated canonical payload and verifies equality;
-empty fitted-artifact tuples canonicalize to JSON lists as declared above.
-
-All reference lookup, integrity replay, uniqueness resolution and insertion
-inside a mutation use that same connection and BEGIN IMMEDIATE transaction.
-An internal connection-taking replay helper is permitted. Do not call the
-path-taking private read helper from inside a write transaction or open another
-connection for reference validation. Read replay detects recursive candidate
-lineage cycles and fails integrity validation; accepted parent references must
-resolve to earlier committed candidates, not newly fabricated self/cyclic links.
-No digest/trigger/sequence/timestamp mechanism authenticates a malicious direct
-SQLite owner. Server sequence proves application commit order only.
-
-Readiness changed STATE only. No Python files changed; pytest/ruff/mypy were
-not rerun under WORKFLOW §5. No implementation, suites, installs, workers,
-push, merge or automatic next readiness. last_completed_task remains18.2i;
-remaining18.2 NOT_STARTED, 18.3/18.4 NOT_STARTED, next_task null,
-human_transition_required false and Phase18 IN_PROGRESS. Never begin Phase29.
+Readiness changed STATE only. No Python files changed; pytest/ruff/mypy were not
+re-run under WORKFLOW §5. No implementation, suites, installs, push, merge or
+workers. Current task18.2k READY; next_task null; last_completed_task18.2j;
+human_transition_required false; remaining18.2, 18.3 and18.4 NOT_STARTED;
+Phase18 IN_PROGRESS. No whole-phase claim or automatic phase crossing.
 
 ## 3. Important Limitations
 
