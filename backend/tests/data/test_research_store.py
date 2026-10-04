@@ -1680,3 +1680,681 @@ def test_private_integrity_context_isolated_between_concurrent_calls(
         public = pool.submit(public_validation)
         assert public.result() == "actor must be a nonempty UTF-8 string without NUL"
         assert replay.result() == "stored research event failed integrity validation"
+
+
+def reserve_validation(
+    db: Path, ledger: tuple[str, str], run: str = "run", actor: str = "developer"
+) -> store.ResearchReservedObservations:
+    source, frozen = ledger
+    return store.reserve_validation_evaluation(
+        db,
+        run_id=run,
+        candidate_id=frozen,
+        input_id=source,
+        start_ts=3 * DAY,
+        end_ts=5 * DAY,
+        actor=actor,
+    )
+
+
+def reservation_count(db: Path) -> int:
+    with sqlite3.connect(db) as connection:
+        return connection.execute(
+            "SELECT count(*) FROM research_evaluation_reservations_v1"
+        ).fetchone()[0]
+
+
+def test_reservation_exact_independent_binding_and_selection(
+    db: Path, ledger: tuple[str, str], recipe: dict[str, object]
+) -> None:
+    source, frozen = ledger
+    first = reserve_validation(db, ledger)
+    second = reserve_validation(db, ledger, "rerun", "different actor")
+    assert [row.close_ts for row in first.observations] == [3 * DAY, 4 * DAY]
+    with sqlite3.connect(db) as connection:
+        candidate_payload = json.loads(
+            connection.execute(
+                "SELECT payload FROM research_events_v1 WHERE event_id=?", (frozen,)
+            ).fetchone()[0]
+        )
+    binding = {
+        "contract_version": "research-evaluation-reservation-v1",
+        "rule_id": "phase18-temporal-v1",
+        "stage": "validation",
+        "candidate_id": frozen,
+        "candidate_payload": candidate_payload,
+        "selection_id": None,
+        "input_id": source,
+        "input_snapshot_id": create_controlled_fixture(
+            {**recipe, "observation_count": 12}
+        ).snapshot_id,
+        "membership": {
+            "input_id": source,
+            "start_ts": {"kind": "int", "value": hex(3 * DAY)},
+            "end_ts": {"kind": "int", "value": hex(5 * DAY)},
+            "members": [member(3 * DAY), member(4 * DAY)],
+        },
+    }
+    expected = {
+        **binding,
+        "evaluation_id": first.reservation.evaluation_id,
+        "run_id": "run",
+        "actor": "developer",
+        "inspection_id": first.inspection.event_id,
+        "source_watermark": {"kind": "int", "value": "0x2"},
+        "lifecycle_watermark": {"kind": "int", "value": "0x1"},
+        "binding_id": "sha256:" + hashlib.sha256(canonical(binding)).hexdigest(),
+    }
+    assert first.reservation.canonical_bytes == canonical(expected)
+    assert (
+        first.reservation.event_id
+        == "sha256:" + hashlib.sha256(canonical(expected)).hexdigest()
+    )
+    repeated = json.loads(second.reservation.canonical_bytes)
+    assert repeated["binding_id"] == expected["binding_id"]
+    assert first.reservation.evaluation_id != second.reservation.evaluation_id
+    assert first.reservation.event_id != second.reservation.event_id
+    assert first.inspection.event_id != second.inspection.event_id
+    assert (
+        json.loads(second.inspection.canonical_bytes)["access_status"]
+        == "repeat_access"
+    )
+    selected = store.freeze_final_selection(
+        db,
+        document=selection(
+            source,
+            frozen,
+            validation={"input_id": source, "start_ts": 3 * DAY, "end_ts": 5 * DAY},
+        ),
+    )
+    oos = store.reserve_oos_evaluation(
+        db, run_id="oos", selection_id=selected.event_id, actor="reader"
+    )
+    assert [row.close_ts for row in oos.observations] == [5 * DAY, 6 * DAY]
+    payload = json.loads(oos.reservation.canonical_bytes)
+    assert payload["candidate_payload"] == candidate_payload
+    assert (
+        payload["candidate_id"] == frozen
+        and payload["selection_id"] == selected.event_id
+    )
+    assert payload["stage"] == "oos" and payload["binding_id"] != expected["binding_id"]
+    assert payload["lifecycle_watermark"] == {"kind": "int", "value": "0x4"}
+    with pytest.raises(FrozenInstanceError):
+        first.reservation.run_id = "changed"  # type: ignore[misc]  # Frozen record regression.
+
+
+def test_reservation_duplicate_global_and_error_order(
+    db: Path, ledger: tuple[str, str], caplog: pytest.LogCaptureFixture
+) -> None:
+    source, frozen = ledger
+    reserve_validation(db, ledger)
+    selected = store.freeze_final_selection(
+        db,
+        document=selection(
+            source,
+            frozen,
+            validation={"input_id": source, "start_ts": 3 * DAY, "end_ts": 5 * DAY},
+        ),
+    )
+    before = lifecycle_count(db)
+    for selection_id in (selected.event_id, "missing"):
+        caplog.clear()
+        with pytest.raises(
+            ValueError, match="^run already has a research evaluation reservation$"
+        ):
+            store.reserve_oos_evaluation(
+                db, run_id="run", selection_id=selection_id, actor="reader"
+            )
+        assert [record.message for record in caplog.records] == [
+            "run already has a research evaluation reservation"
+        ]
+    assert lifecycle_count(db) == before and reservation_count(db) == 1
+    with pytest.raises(
+        ValueError, match="^run_id must be a nonempty UTF-8 string without NUL$"
+    ):
+        store.reserve_validation_evaluation(
+            db,
+            run_id="",
+            candidate_id="",
+            input_id="",
+            actor="",
+            start_ts=True,
+            end_ts=0,
+        )
+    with pytest.raises(ValueError, match="^research candidate event does not exist$"):
+        store.reserve_validation_evaluation(
+            db,
+            run_id="new",
+            candidate_id=source,
+            input_id="missing",
+            actor="reader",
+            start_ts=3 * DAY,
+            end_ts=5 * DAY,
+        )
+    with pytest.raises(ValueError, match="^research input event does not exist$"):
+        store.reserve_validation_evaluation(
+            db,
+            run_id="new",
+            candidate_id=frozen,
+            input_id=frozen,
+            actor="reader",
+            start_ts=3 * DAY,
+            end_ts=5 * DAY,
+        )
+    with pytest.raises(ValueError, match="^research selection event does not exist$"):
+        store.reserve_oos_evaluation(
+            db, run_id="new", selection_id=frozen, actor="reader"
+        )
+    with pytest.raises(
+        ValueError, match="^research ranges must be chronological and nonoverlapping$"
+    ):
+        store.reserve_validation_evaluation(
+            db,
+            run_id="new",
+            candidate_id=frozen,
+            input_id=source,
+            actor="reader",
+            start_ts=DAY,
+            end_ts=3 * DAY,
+        )
+    assert lifecycle_count(db) == before and reservation_count(db) == 1
+
+
+def test_reservation_historical_replay_without_writes_and_intervening_events(
+    db: Path, ledger: tuple[str, str]
+) -> None:
+    source, frozen = ledger
+    original = reserve_validation(db, ledger)
+    external(db, source, 9 * DAY, 10 * DAY)
+    selected = store.freeze_final_selection(
+        db,
+        document=selection(
+            source,
+            frozen,
+            validation={"input_id": source, "start_ts": 3 * DAY, "end_ts": 5 * DAY},
+        ),
+    )
+    store.reserve_oos_evaluation(
+        db, run_id="oos", selection_id=selected.event_id, actor="reader"
+    )
+    store.access_oos_observations(db, selection_id=selected.event_id, actor="later")
+    store.freeze_final_selection(
+        db,
+        document=selection(
+            source,
+            frozen,
+            selection_revision="s2",
+            oos_start_ts=10 * DAY,
+            oos_end_ts=12 * DAY,
+            validation={"input_id": source, "start_ts": 3 * DAY, "end_ts": 5 * DAY},
+        ),
+    )
+    before = lifecycle_count(db), reservation_count(db)
+    with store._connection(db) as connection:
+        connection.execute("BEGIN")
+        records = store._reservation_history(connection, store._history(connection))
+    assert records[0] == original.reservation
+    assert (lifecycle_count(db), reservation_count(db)) == before
+
+
+@pytest.mark.parametrize("change", ["code", "parameters", "input"])
+def test_changed_binding_preserves_prior_reservation(
+    db: Path, ledger: tuple[str, str], recipe: dict[str, object], change: str
+) -> None:
+    source, frozen = ledger
+    data = {
+        **candidate(source),
+        "trial_count": 1,
+        "candidate_revision": "r2",
+        "parent_candidate_id": frozen,
+    }
+    if change == "code":
+        data["code_id"] = "b" * 40
+    elif change == "parameters":
+        data["parameters"] = {
+            **cast(dict[str, object], data["parameters"]),
+            "trade_size": "2",
+        }
+    else:
+        source = capture(
+            db, {**recipe, "observation_count": 12, "price_start": 200}
+        ).event_id
+        data["in_sample_input_id"] = source
+    revised = store.freeze_research_candidate(db, document=data)
+    prior = reserve_validation(db, ledger)
+    newer = reserve_validation(db, (source, revised.event_id), "new")
+    assert (
+        json.loads(prior.reservation.canonical_bytes)["binding_id"]
+        != json.loads(newer.reservation.canonical_bytes)["binding_id"]
+    )
+    with store._connection(db) as connection:
+        assert (
+            store._reservation_history(connection, store._history(connection))[0]
+            == prior.reservation
+        )
+
+
+def corrupt_reservation(
+    db: Path,
+    event: store.ResearchEvaluationReservation,
+    *,
+    payload: bytes | None = None,
+    assignment: str | None = None,
+) -> None:
+    with sqlite3.connect(db) as connection:
+        connection.execute("DROP TRIGGER research_reservation_no_update")
+        if assignment is not None:
+            connection.execute(
+                f"UPDATE research_evaluation_reservations_v1 SET {assignment} "
+                "WHERE seq=?",
+                (event.seq,),
+            )
+        else:
+            assert payload is not None
+            connection.execute(
+                """UPDATE research_evaluation_reservations_v1
+                SET payload=?,event_id=? WHERE seq=?""",
+                (payload, "sha256:" + hashlib.sha256(payload).hexdigest(), event.seq),
+            )
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "hash",
+        "run_index",
+        "evaluation_index",
+        "timestamp",
+        "snapshot",
+        "candidate",
+        "membership",
+        "inspection",
+        "actor",
+        "stage",
+        "source_watermark",
+        "lifecycle_watermark",
+        "future_watermark",
+        "typed",
+        "binding",
+        "extra",
+        "version",
+        "noncanonical",
+        "duplicate_key",
+        "uuid",
+        "selection",
+    ],
+)
+def test_reservation_corruption_blocks_release_and_normalizes_once(
+    db: Path, ledger: tuple[str, str], tamper: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = reserve_validation(db, ledger).reservation
+    payload = json.loads(event.canonical_bytes)
+    assignments = {
+        "hash": "event_id='wrong'",
+        "run_index": "run_id='wrong'",
+        "evaluation_index": "evaluation_id='wrong'",
+        "timestamp": "recorded_at_ts='wrong'",
+    }
+    if tamper in assignments:
+        corrupt_reservation(db, event, assignment=assignments[tamper])
+    else:
+        if tamper == "snapshot":
+            payload["input_snapshot_id"] = "sha256:wrong"
+        elif tamper == "candidate":
+            payload["candidate_payload"]["code_id"] = "b" * 40
+        elif tamper == "membership":
+            payload["membership"]["members"] = []
+        elif tamper == "inspection":
+            payload["inspection_id"] = "missing"
+        elif tamper == "actor":
+            payload["actor"] = "other"
+        elif tamper == "stage":
+            payload["stage"] = "external"
+        elif tamper == "source_watermark":
+            payload["source_watermark"] = {"kind": "int", "value": "0x1"}
+        elif tamper == "lifecycle_watermark":
+            payload["lifecycle_watermark"] = {"kind": "int", "value": "0x0"}
+        elif tamper == "future_watermark":
+            payload["source_watermark"] = {"kind": "int", "value": "0xff"}
+        elif tamper == "typed":
+            payload["membership"]["start_ts"]["value"] = "0Xf731400"
+        elif tamper == "binding":
+            payload["binding_id"] = "sha256:wrong"
+        elif tamper == "extra":
+            payload["extra"] = None
+        elif tamper == "version":
+            payload["contract_version"] = "unknown"
+        elif tamper == "uuid":
+            payload["evaluation_id"] = "Z" * 32
+        elif tamper == "selection":
+            payload["selection_id"] = "missing"
+        raw = canonical(payload)
+        if tamper == "noncanonical":
+            raw += b"\n"
+        elif tamper == "duplicate_key":
+            raw = b'{"actor":"developer",' + raw[1:]
+        corrupt_reservation(db, event, payload=raw)
+    before = lifecycle_count(db)
+    caplog.clear()
+    with pytest.raises(
+        ValueError, match="^stored research event failed integrity validation$"
+    ):
+        reserve_validation(db, ledger, "next")
+    assert [r.message for r in caplog.records] == [
+        "stored research event failed integrity validation"
+    ]
+    assert lifecycle_count(db) == before and reservation_count(db) == 1
+    assert store._LIFECYCLE_REPLAY.get() is False
+
+
+@pytest.mark.parametrize("reuse", [True, False])
+def test_reservation_unique_and_increasing_inspection_links(
+    db: Path, ledger: tuple[str, str], reuse: bool
+) -> None:
+    first = reserve_validation(db, ledger)
+    second = reserve_validation(db, ledger, "second")
+    third = store.access_validation_observations(
+        db,
+        candidate_id=ledger[1],
+        input_id=ledger[0],
+        start_ts=3 * DAY,
+        end_ts=5 * DAY,
+        actor="developer",
+    )
+    payload = json.loads(second.reservation.canonical_bytes)
+    target = first.inspection if reuse else third.event
+    payload["inspection_id"] = target.event_id
+    payload["lifecycle_watermark"] = {"kind": "int", "value": hex(target.seq)}
+    corrupt_reservation(db, second.reservation, payload=canonical(payload))
+    if not reuse:
+        # Reverse linked order while preserving valid individual expected payloads.
+        with sqlite3.connect(db) as connection:
+            connection.execute(
+                "UPDATE research_evaluation_reservations_v1 SET seq=100 WHERE seq=1"
+            )
+    with pytest.raises(
+        ValueError, match="^stored research event failed integrity validation$"
+    ):
+        reserve_validation(db, ledger, "next")
+
+
+@pytest.mark.parametrize("operation", ["UPDATE", "DELETE"])
+def test_reservation_append_only(
+    db: Path, ledger: tuple[str, str], operation: str
+) -> None:
+    reserve_validation(db, ledger)
+    sql = (
+        "UPDATE research_evaluation_reservations_v1 SET run_id='changed'"
+        if operation == "UPDATE"
+        else "DELETE FROM research_evaluation_reservations_v1"
+    )
+    with sqlite3.connect(db) as connection:
+        with pytest.raises(
+            sqlite3.IntegrityError, match="research events are append-only"
+        ):
+            connection.execute(sql)
+
+
+@pytest.mark.parametrize("stage", ["validation", "oos"])
+@pytest.mark.parametrize("failure_kind", ["insert", "commit"])
+def test_reservation_failure_rolls_back_both_appends(
+    db: Path,
+    ledger: tuple[str, str],
+    stage: str,
+    failure_kind: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = (
+        store.freeze_final_selection(db, document=selection(*ledger))
+        if stage == "oos"
+        else None
+    )
+    before = lifecycle_count(db)
+    original_connect = sqlite3.connect
+    failure = sqlite3.OperationalError("injected reservation commit failure")
+    if failure_kind == "insert":
+        with sqlite3.connect(db) as connection:
+            connection.execute("""CREATE TRIGGER fail_reservation BEFORE INSERT
+                ON research_evaluation_reservations_v1 BEGIN
+                SELECT RAISE(ABORT,'injected reservation insert failure'); END""")
+    else:
+
+        class FailCommit(sqlite3.Connection):
+            def commit(self) -> None:
+                raise failure
+
+        def connect(path: Path, *, isolation_level: None) -> sqlite3.Connection:
+            return original_connect(
+                path, isolation_level=isolation_level, factory=FailCommit
+            )
+
+        monkeypatch.setattr(store.sqlite3, "connect", connect)
+    returned = []
+    with pytest.raises(sqlite3.Error) as error:
+        if stage == "validation":
+            returned.append(reserve_validation(db, ledger))
+        else:
+            assert selected is not None
+            returned.append(
+                store.reserve_oos_evaluation(
+                    db, run_id="run", selection_id=selected.event_id, actor="reader"
+                )
+            )
+    if failure_kind == "commit":
+        assert error.value is failure
+    else:
+        assert str(error.value) == "injected reservation insert failure"
+    assert returned == []
+    monkeypatch.setattr(store.sqlite3, "connect", original_connect)
+    assert lifecycle_count(db) == before and reservation_count(db) == 0
+
+
+def test_actual_reservation_contenders_duplicate_run_serialization(
+    db: Path, ledger: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from threading import Event, get_ident
+
+    locked, contender = Event(), Event()
+    owner: list[int] = []
+    original_connect, original_access = sqlite3.connect, store._access
+
+    class ObserveBegin(sqlite3.Connection):
+        def execute(self, sql: str, parameters: object = (), /) -> sqlite3.Cursor:
+            if sql == "BEGIN IMMEDIATE" and owner and get_ident() != owner[0]:
+                contender.set()
+            return super().execute(sql, parameters)
+
+    def connect(path: Path, *, isolation_level: None) -> sqlite3.Connection:
+        return original_connect(
+            path, isolation_level=isolation_level, factory=ObserveBegin
+        )
+
+    def access(
+        connection: sqlite3.Connection, history: store._History, **kwargs: object
+    ) -> store.ResearchObservationAccess:
+        owner.append(get_ident())
+        locked.set()
+        assert contender.wait(5)
+        return original_access(connection, history, **kwargs)
+
+    def run() -> object:
+        try:
+            return reserve_validation(db, ledger)
+        except ValueError as error:
+            return str(error)
+
+    monkeypatch.setattr(store.sqlite3, "connect", connect)
+    monkeypatch.setattr(store, "_access", access)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(run)
+        assert locked.wait(5)
+        second = pool.submit(run)
+        results = [first.result(), second.result()]
+    monkeypatch.setattr(store.sqlite3, "connect", original_connect)
+    assert isinstance(results[0], store.ResearchReservedObservations)
+    assert results[1] == "run already has a research evaluation reservation"
+    assert lifecycle_count(db) == 1 and reservation_count(db) == 1
+
+
+def test_reservation_large_clocks_and_coverage_errors(
+    db: Path, recipe: dict[str, object]
+) -> None:
+    anchor = 2**60 + 7
+    raw = {
+        **recipe,
+        "anchor_ts": anchor,
+        "start_open_ts": anchor,
+        "observation_count": 12,
+    }
+    source = capture(db, raw)
+    frozen = store.freeze_research_candidate(
+        db,
+        document={
+            **candidate(source.event_id),
+            "trial_count": 1,
+            "in_sample_start_ts": anchor + DAY,
+            "in_sample_end_ts": anchor + 3 * DAY,
+        },
+    )
+    result = store.reserve_validation_evaluation(
+        db,
+        run_id="large",
+        candidate_id=frozen.event_id,
+        input_id=source.event_id,
+        start_ts=anchor + 3 * DAY,
+        end_ts=anchor + 5 * DAY,
+        actor="reader",
+    )
+    payload = json.loads(result.reservation.canonical_bytes)
+    assert payload["membership"]["start_ts"] == {
+        "kind": "int",
+        "value": hex(anchor + 3 * DAY),
+    }
+    assert [row.close_ts for row in result.observations] == [
+        anchor + 3 * DAY,
+        anchor + 4 * DAY,
+    ]
+    before = lifecycle_count(db)
+    with pytest.raises(ValueError) as expected:
+        store.access_validation_observations(
+            db,
+            candidate_id=frozen.event_id,
+            input_id=source.event_id,
+            start_ts=anchor + 11 * DAY,
+            end_ts=anchor + 14 * DAY,
+            actor="reader",
+        )
+    with pytest.raises(ValueError) as actual:
+        store.reserve_validation_evaluation(
+            db,
+            run_id="missing coverage",
+            candidate_id=frozen.event_id,
+            input_id=source.event_id,
+            start_ts=anchor + 11 * DAY,
+            end_ts=anchor + 14 * DAY,
+            actor="reader",
+        )
+    assert str(actual.value) == str(expected.value)
+    assert lifecycle_count(db) == before and reservation_count(db) == 1
+
+
+def test_changed_selection_binding_retains_contamination(
+    db: Path, ledger: tuple[str, str]
+) -> None:
+    first_selection = store.freeze_final_selection(db, document=selection(*ledger))
+    first = store.reserve_oos_evaluation(
+        db, run_id="first", selection_id=first_selection.event_id, actor="reader"
+    )
+    with pytest.raises(
+        ValueError, match="^final holdout observations were already inspected$"
+    ):
+        store.freeze_final_selection(
+            db, document=selection(*ledger, selection_revision="bad")
+        )
+    second_selection = store.freeze_final_selection(
+        db,
+        document=selection(
+            *ledger, selection_revision="s2", oos_start_ts=8 * DAY, oos_end_ts=10 * DAY
+        ),
+    )
+    second = store.reserve_oos_evaluation(
+        db, run_id="second", selection_id=second_selection.event_id, actor="reader"
+    )
+    assert (
+        json.loads(first.reservation.canonical_bytes)["binding_id"]
+        != json.loads(second.reservation.canonical_bytes)["binding_id"]
+    )
+    with store._connection(db) as connection:
+        assert (
+            store._reservation_history(connection, store._history(connection))[0]
+            == first.reservation
+        )
+
+
+def test_reservation_source_errors_preserved_once(
+    db: Path, ledger: tuple[str, str], caplog: pytest.LogCaptureFixture
+) -> None:
+    reserve_validation(db, ledger)
+    with sqlite3.connect(db) as connection:
+        payload = json.loads(
+            connection.execute(
+                "SELECT payload FROM research_events_v1 WHERE event_id=?", (ledger[0],)
+            ).fetchone()[0]
+        )
+    payload["recipe"]["recipe_version"] = "unknown"
+    corrupt(db, ledger[0], payload=canonical(payload))
+    caplog.clear()
+    with pytest.raises(
+        ValueError, match="^recipe_version must be controlled-daily-linear-v1$"
+    ):
+        reserve_validation(db, ledger, "next")
+    assert [record.message for record in caplog.records] == [
+        "recipe_version must be controlled-daily-linear-v1"
+    ]
+    assert store._LIFECYCLE_REPLAY.get() is False
+    assert lifecycle_count(db) == 1 and reservation_count(db) == 1
+
+
+def test_each_considered_trial_reservation_precedes_final_selection(
+    db: Path, recipe: dict[str, object]
+) -> None:
+    source = capture(db, {**recipe, "observation_count": 12}).event_id
+    candidates = [
+        store.freeze_research_candidate(
+            db,
+            document={
+                **candidate(source),
+                "candidate_revision": f"trial-{index}",
+                "trial_index": index,
+            },
+        ).event_id
+        for index in range(1, 4)
+    ]
+    document = selection(
+        source,
+        candidates[-1],
+        considered_candidate_ids=candidates,
+        validation={"input_id": source, "start_ts": 3 * DAY, "end_ts": 5 * DAY},
+    )
+    for index, frozen in enumerate(candidates):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "^validation access must precede final selection "
+                "for every considered candidate$"
+            ),
+        ):
+            store.freeze_final_selection(db, document=document)
+        reservation = reserve_validation(db, (source, frozen), f"trial-run-{index}")
+        assert (
+            json.loads(reservation.reservation.canonical_bytes)["candidate_id"]
+            == frozen
+        )
+    selected = store.freeze_final_selection(db, document=document)
+    final = store.reserve_oos_evaluation(
+        db, run_id="final", selection_id=selected.event_id, actor="reader"
+    )
+    assert (
+        json.loads(final.reservation.canonical_bytes)["candidate_id"] == candidates[-1]
+    )
+    assert reservation_count(db) == 4 and lifecycle_count(db) == 5
