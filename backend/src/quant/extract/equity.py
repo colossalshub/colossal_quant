@@ -21,11 +21,16 @@ Callers supply ``first_bar_ts`` so bar 1 is included at ``starting_balance``.
 from __future__ import annotations
 
 import bisect
+import logging
+import math
 from dataclasses import dataclass
+from typing import NoReturn
 
 from quant.engine.runner import BacktestResult
+from quant.engine.temporal import ResearchInterval
 
 _VERIFICATION_THRESHOLD = 0.005
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -147,8 +152,10 @@ def _verify_ending_balance(result: BacktestResult) -> Verification:
     )
 
 
-def _compute_drawdown(equity_points: list[EquityPoint]) -> list[DrawdownPoint]:
-    peak = equity_points[0].equity
+def _compute_drawdown(
+    equity_points: list[EquityPoint], *, initial_peak: float | None = None
+) -> list[DrawdownPoint]:
+    peak = equity_points[0].equity if initial_peak is None else initial_peak
     drawdown_points: list[DrawdownPoint] = []
     for point in equity_points:
         if point.equity > peak:
@@ -174,5 +181,85 @@ def extract_equity(
     return EquityExtraction(
         equity=equity_points,
         drawdown=drawdown_points,
+        verification=verification,
+    )
+
+
+def _research_error(message: str) -> NoReturn:
+    _LOG.error(message)
+    raise ValueError(message)
+
+
+def extract_research_equity(
+    result: BacktestResult, *, active: ResearchInterval
+) -> EquityExtraction:
+    """Extract scored active clocks without the ordinary artifact cash baseline.
+
+    Cash remains metadata and the compounding/drawdown basis. Only positive
+    equity and positive account verification are supported; total-loss and
+    negative account paths reject. Supplied clocks are checked, not actual
+    coverage or source provenance. The independent account figure is supplied
+    evidence, whose origin this pure extractor cannot authenticate. A finite
+    verification mismatch is reported, not an eligibility decision.
+    """
+    if not isinstance(active, ResearchInterval):
+        _research_error("active must be a ResearchInterval")
+    if not isinstance(active.start_ts, int) or isinstance(active.start_ts, bool):
+        _research_error("active.start_ts must be an integer excluding bool")
+    if not isinstance(active.end_ts, int) or isinstance(active.end_ts, bool):
+        _research_error("active.end_ts must be an integer excluding bool")
+    if active.start_ts >= active.end_ts:
+        _research_error("active.start_ts must be less than active.end_ts")
+    cash = result.starting_balance
+    if type(cash) is not float or not math.isfinite(cash) or cash <= 0:
+        _research_error("research starting_balance must be a finite positive float")
+    returns = result.portfolio_returns
+    if type(returns) is not list or not returns:
+        _research_error("research portfolio_returns must be a nonempty list")
+    previous_ts: int | None = None
+    for item in returns:
+        if type(item) is not tuple or len(item) != 2:
+            _research_error("research return item must be a two-element tuple")
+        ts, ret = item
+        if not isinstance(ts, int) or isinstance(ts, bool):
+            _research_error(
+                "research return timestamp must be an integer excluding bool"
+            )
+        if type(ret) is not float or not math.isfinite(ret):
+            _research_error("research return value must be a finite float")
+        if not active.start_ts <= ts < active.end_ts:
+            _research_error(
+                "research return timestamp must lie inside the active interval"
+            )
+        if previous_ts is not None and ts <= previous_ts:
+            _research_error("research return timestamps must be strictly increasing")
+        if previous_ts is None and ts != active.start_ts:
+            _research_error(
+                "research first return timestamp must equal active.start_ts"
+            )
+        previous_ts = ts
+
+    points: list[EquityPoint] = []
+    equity = cash
+    for ts, ret in returns:
+        equity *= 1.0 + ret
+        if not math.isfinite(equity) or equity <= 0:
+            _research_error("research reconstructed equity must be finite and positive")
+        points.append(EquityPoint(ts=ts, equity=equity, benchmark=None))
+    independent = result.independent_ending_balance
+    if (
+        type(independent) is not float
+        or not math.isfinite(independent)
+        or independent <= 0
+    ):
+        _research_error(
+            "research independent_ending_balance must be a finite positive float"
+        )
+    verification = _verify_ending_balance(result)
+    if not math.isfinite(verification.discrepancy_pct):
+        _research_error("research account discrepancy must be finite")
+    return EquityExtraction(
+        equity=points,
+        drawdown=_compute_drawdown(points, initial_peak=cash),
         verification=verification,
     )
