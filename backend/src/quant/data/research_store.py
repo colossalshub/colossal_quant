@@ -357,6 +357,16 @@ def _connection(db_path: Path) -> Iterator[sqlite3.Connection]:
                 research_lifecycle_no_{operation.lower()}
                 BEFORE {operation} ON research_lifecycle_v1 BEGIN
                 SELECT RAISE(ABORT, 'research events are append-only'); END""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS
+            research_evaluation_reservations_v1 (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT UNIQUE NOT NULL,
+            evaluation_id TEXT UNIQUE NOT NULL, run_id TEXT UNIQUE NOT NULL,
+            recorded_at_ts INTEGER NOT NULL, payload BLOB NOT NULL)""")
+        for operation in ("UPDATE", "DELETE"):
+            connection.execute(f"""CREATE TRIGGER IF NOT EXISTS
+                research_reservation_no_{operation.lower()}
+                BEFORE {operation} ON research_evaluation_reservations_v1 BEGIN
+                SELECT RAISE(ABORT, 'research events are append-only'); END""")
         yield connection
     finally:
         connection.close()
@@ -1345,3 +1355,301 @@ def record_external_inspection(
             note=note,
         ).event
     return result
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchEvaluationReservation:
+    """Immutable run binding; neither execution nor completion evidence."""
+
+    seq: int
+    event_id: str
+    evaluation_id: str
+    run_id: str
+    recorded_at_ts: int
+    canonical_bytes: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchReservedObservations:
+    """Requested observations released only after both ledger appends commit."""
+
+    reservation: ResearchEvaluationReservation
+    inspection: ResearchLifecycleEvent
+    observations: tuple[ResearchObservation, ...]
+
+
+_BINDING_FIELDS = (
+    "contract_version",
+    "rule_id",
+    "stage",
+    "candidate_id",
+    "candidate_payload",
+    "selection_id",
+    "input_id",
+    "input_snapshot_id",
+    "membership",
+)
+_RESERVATION_FIELDS = frozenset(
+    (
+        *_BINDING_FIELDS,
+        "evaluation_id",
+        "run_id",
+        "actor",
+        "inspection_id",
+        "source_watermark",
+        "lifecycle_watermark",
+        "binding_id",
+    )
+)
+
+
+def _reservation_payload(
+    connection: sqlite3.Connection,
+    history: _History,
+    inspection: ResearchLifecycleEvent,
+    *,
+    run_id: str,
+    evaluation_id: str,
+) -> dict[str, object]:
+    access = _parse(inspection.canonical_bytes)
+    stage = access["action"]
+    if stage not in ("validation", "oos"):
+        _fail(_INTEGRITY)
+    candidate_id = access["candidate_id"]
+    selection_id = access["selection_id"]
+    if stage == "oos":
+        selected = next(
+            (
+                item
+                for event, item in history
+                if event.event_id == selection_id
+                and event.kind == "selection"
+                and event.seq < inspection.seq
+            ),
+            None,
+        )
+        if selected is None:
+            _fail(_INTEGRITY)
+        candidate_id = _mapping(selected["document"])["selected_candidate_id"]
+    candidate = _source(connection, cast(str, candidate_id), "candidate")
+    start = cast(int, _decode_number(access["start_ts"], ("int",)))
+    end = cast(int, _decode_number(access["end_ts"], ("int",)))
+    membership, _, source = _membership(
+        connection, cast(str, access["input_id"]), start, end
+    )
+    watermark = cast(int, _decode_number(access["source_watermark"], ("int",)))
+    if candidate.seq > watermark or source.seq > watermark:
+        _fail(_INTEGRITY)
+    recipe, document = _decode_input(_parse(source.canonical_bytes))
+    snapshot = bind_controlled_fixture(recipe=recipe, document=document)
+    binding: dict[str, object] = {
+        "contract_version": "research-evaluation-reservation-v1",
+        "rule_id": "phase18-temporal-v1",
+        "stage": stage,
+        "candidate_id": candidate.event_id,
+        "candidate_payload": _parse(candidate.canonical_bytes),
+        "selection_id": selection_id,
+        "input_id": source.event_id,
+        "input_snapshot_id": snapshot.snapshot_id,
+        "membership": membership,
+    }
+    return {
+        **binding,
+        "evaluation_id": evaluation_id,
+        "run_id": run_id,
+        "actor": access["actor"],
+        "inspection_id": inspection.event_id,
+        "source_watermark": access["source_watermark"],
+        "lifecycle_watermark": _typed(inspection.seq),
+        "binding_id": _identity(_canonical(binding)),
+    }
+
+
+def _reservation_history(
+    connection: sqlite3.Connection,
+    history: _History,
+) -> list[ResearchEvaluationReservation]:
+    # Source replay occurs outside this scope in _history, preserving its errors.
+    token = _LIFECYCLE_REPLAY.set(True)
+    try:
+        result: list[ResearchEvaluationReservation] = []
+        runs: set[str] = set()
+        evaluations: set[str] = set()
+        linked: set[str] = set()
+        previous = 0
+        for seq, identity, evaluation, run, timestamp, raw in connection.execute(
+            """SELECT seq,event_id,evaluation_id,run_id,recorded_at_ts,payload
+            FROM research_evaluation_reservations_v1 ORDER BY seq"""
+        ):
+            if (
+                not isinstance(raw, bytes)
+                or _identity(raw) != identity
+                or not isinstance(seq, int)
+                or seq <= 0
+                or not isinstance(timestamp, int)
+            ):
+                _fail(_INTEGRITY)
+            payload = _parse(raw)
+            if (
+                payload.keys() != _RESERVATION_FIELDS
+                or not _text(run)
+                or run in runs
+                or not isinstance(evaluation, str)
+                or re.fullmatch("[0-9a-f]{32}", evaluation) is None
+                or evaluation in evaluations
+                or payload["run_id"] != run
+                or payload["evaluation_id"] != evaluation
+            ):
+                _fail(_INTEGRITY)
+            inspection = next(
+                (
+                    event
+                    for event, _ in history
+                    if event.event_id == payload["inspection_id"]
+                    and event.kind == "inspection"
+                ),
+                None,
+            )
+            if (
+                inspection is None
+                or inspection.event_id in linked
+                or inspection.seq <= previous
+            ):
+                _fail(_INTEGRITY)
+            expected = _reservation_payload(
+                connection, history, inspection, run_id=run, evaluation_id=evaluation
+            )
+            if _canonical(expected) != raw:
+                _fail(_INTEGRITY)
+            runs.add(run)
+            evaluations.add(evaluation)
+            linked.add(inspection.event_id)
+            previous = inspection.seq
+            result.append(
+                ResearchEvaluationReservation(
+                    seq, identity, evaluation, run, timestamp, raw
+                )
+            )
+        return result
+    except (KeyError, TypeError, AttributeError):
+        _fail(_INTEGRITY)
+    finally:
+        _LIFECYCLE_REPLAY.reset(token)
+
+
+def _reserve(
+    db_path: Path,
+    *,
+    run_id: str,
+    actor: str,
+    stage: str,
+    candidate_id: str | None = None,
+    input_id: str | None = None,
+    start: int | None = None,
+    end: int | None = None,
+    selection_id: str | None = None,
+) -> ResearchReservedObservations:
+    with _lifecycle_transaction(db_path) as (connection, history):
+        reservations = _reservation_history(connection, history)
+        if any(event.run_id == run_id for event in reservations):
+            _fail("run already has a research evaluation reservation")
+        if stage == "validation":
+            _source(connection, cast(str, candidate_id), "candidate")
+        else:
+            selected = next(
+                (
+                    item
+                    for event, item in history
+                    if event.event_id == selection_id and event.kind == "selection"
+                ),
+                None,
+            )
+            if selected is None:
+                _fail("research selection event does not exist")
+            membership = _mapping(selected["holdout_membership"])
+            input_id = cast(str, membership["input_id"])
+            start = cast(int, _decode_number(membership["start_ts"], ("int",)))
+            end = cast(int, _decode_number(membership["end_ts"], ("int",)))
+        access = _access(
+            connection,
+            history,
+            action=stage,
+            input_id=cast(str, input_id),
+            start=cast(int, start),
+            end=cast(int, end),
+            actor=actor,
+            candidate_id=candidate_id,
+            selection_id=selection_id,
+        )
+        evaluation = uuid4().hex
+        payload = _reservation_payload(
+            connection, history, access.event, run_id=run_id, evaluation_id=evaluation
+        )
+        raw = _canonical(payload)
+        identity = _identity(raw)
+        timestamp = time.time_ns() // 1_000_000
+        cursor = connection.execute(
+            """INSERT INTO research_evaluation_reservations_v1
+            (event_id,evaluation_id,run_id,recorded_at_ts,payload)
+            VALUES (?,?,?,?,?)""",
+            (identity, evaluation, run_id, timestamp, raw),
+        )
+        assert cursor.lastrowid is not None
+        result = ResearchReservedObservations(
+            ResearchEvaluationReservation(
+                cursor.lastrowid, identity, evaluation, run_id, timestamp, raw
+            ),
+            access.event,
+            access.observations,
+        )
+    return result
+
+
+def reserve_validation_evaluation(
+    db_path: Path,
+    *,
+    run_id: str,
+    candidate_id: str,
+    input_id: str,
+    start_ts: int,
+    end_ts: int,
+    actor: str,
+) -> ResearchReservedObservations:
+    """Reserve one run and log access to its frozen development candidate."""
+    for field, value in (
+        ("run_id", run_id),
+        ("candidate_id", candidate_id),
+        ("input_id", input_id),
+        ("actor", actor),
+    ):
+        _require_text(value, field)
+    start, end = _bounds(start_ts, end_ts, "validation")
+    return _reserve(
+        db_path,
+        run_id=run_id,
+        actor=actor,
+        stage="validation",
+        candidate_id=candidate_id,
+        input_id=input_id,
+        start=start,
+        end=end,
+    )
+
+
+def reserve_oos_evaluation(
+    db_path: Path,
+    *,
+    run_id: str,
+    selection_id: str,
+    actor: str,
+) -> ResearchReservedObservations:
+    """Reserve one run for exactly the replayed selection's held-out binding."""
+    for field, value in (
+        ("run_id", run_id),
+        ("selection_id", selection_id),
+        ("actor", actor),
+    ):
+        _require_text(value, field)
+    return _reserve(
+        db_path, run_id=run_id, actor=actor, stage="oos", selection_id=selection_id
+    )
